@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "connection_type": {
+        "title": "Intellipool – connection type",
+        "description": "Choose how to connect to your Intellipool controller.",
+        "data": {
+          "connection_type": "Connection type"
+        }
+      },
+      "local": {
+        "title": "Local connection",
+        "description": "Enter the IP address of your Intellipool INTP-1010B. The integration will probe common API endpoints automatically.",
+        "data": {
+          "host": "IP address",
+          "port": "Port (default: 80)",
+          "ssl": "Use HTTPS",
+          "username": "Username (if required)",
+          "password": "Password (if required)"
+        }
+      },
+      "cloud": {
+        "title": "Cloud connection (intellipool.eu)",
+        "description": "Use your intellipool.eu login credentials.",
+        "data": {
+          "username": "Email address",
+          "password": "Password",
+          "pool_id": "Pool ID (leave blank for auto-detection)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect. Check the IP address and network.",
+      "invalid_auth": "Invalid credentials.",
+      "endpoint_not_found": "No local API found on the device. See README for protocol discovery instructions.",
+      "unknown": "Unexpected error. Check logs for details."
+    },
+    "abort": {
+      "already_configured": "Intellipool is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Intellipool options",
+        "data": {
+          "scan_interval": "Update interval (seconds)"
+        }
+      }
+    }
+  }
+}

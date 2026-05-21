@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "connection_type": {
+        "title": "Intellipool – anslutningstyp",
+        "description": "Välj hur integrationen ansluter till din Intellipool-styranläggning.",
+        "data": {
+          "connection_type": "Anslutningstyp"
+        }
+      },
+      "local": {
+        "title": "Lokal anslutning",
+        "description": "Ange IP-adressen till din INTP-1010B. Integrationen probar vanliga API-endpoints automatiskt.",
+        "data": {
+          "host": "IP-adress",
+          "port": "Port (standard: 80)",
+          "ssl": "Använd HTTPS",
+          "username": "Användarnamn (om krävs)",
+          "password": "Lösenord (om krävs)"
+        }
+      },
+      "cloud": {
+        "title": "Molnanslutning (intellipool.eu)",
+        "description": "Använd dina inloggningsuppgifter för intellipool.eu.",
+        "data": {
+          "username": "E-postadress",
+          "password": "Lösenord",
+          "pool_id": "Pool-ID (lämna tomt för automatisk identifiering)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunde inte ansluta. Kontrollera IP och nätverk.",
+      "invalid_auth": "Felaktiga inloggningsuppgifter.",
+      "endpoint_not_found": "Inget lokalt API hittades. Se README för protokoll-discovery.",
+      "unknown": "Oväntat fel. Kontrollera loggarna."
+    },
+    "abort": {
+      "already_configured": "Intellipool är redan konfigurerad."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Intellipool-inställningar",
+        "data": {
+          "scan_interval": "Uppdateringsintervall (sekunder)"
+        }
+      }
+    }
+  }
+}
