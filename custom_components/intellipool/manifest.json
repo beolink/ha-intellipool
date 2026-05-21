@@ -1,0 +1,12 @@
+{
+  "domain": "intellipool",
+  "name": "Pentair Intellipool",
+  "version": "1.0.0",
+  "config_flow": true,
+  "documentation": "https://github.com/beolink/ha-intellipool",
+  "issue_tracker": "https://github.com/beolink/ha-intellipool/issues",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@beolink"],
+  "iot_class": "local_polling"
+}
