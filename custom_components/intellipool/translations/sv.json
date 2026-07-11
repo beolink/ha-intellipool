@@ -32,7 +32,7 @@
         "data": {
           "username": "E-postadress",
           "password": "Lösenord",
-          "pool_id": "Pool-ID (lämna tomt för automatisk identifiering)"
+          "pool_id": "Pool-serienummer (lämna tomt för auto-identifiering)"
         }
       }
     },
@@ -40,6 +40,7 @@
       "cannot_connect": "Kunde inte ansluta. Kontrollera IP och nätverk.",
       "invalid_auth": "Felaktiga inloggningsuppgifter.",
       "endpoint_not_found": "Inget lokalt API hittades. Se README för protokoll-discovery.",
+      "no_serial": "Inloggning OK men poolens serienummer kunde inte hittas automatiskt. Ange det manuellt (siffran i displaySummary('...') på intellipool.eu).",
       "unknown": "Oväntat fel. Kontrollera loggarna."
     },
     "abort": {

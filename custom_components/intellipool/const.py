@@ -37,10 +37,15 @@ CLOUD_LOGIN_PATH = "/pool/poolLogin/login"   # POST, form-urlencoded
 CLOUD_LOGIN_FIELD_USER = "login"             # username / e-mail field
 CLOUD_LOGIN_FIELD_PASS = "pass"              # password field (plaintext over TLS)
 
-# --- Placeholders: must be captured via DevTools, then set here ---
-CLOUD_DATA_PATH = "/pool/getPoolData"        # PLACEHOLDER — capture real path
+# --- Data endpoint: CONFIRMED (captured from the app via DevTools) ---
+# POST form-urlencoded "serial=<pool serial>" → returns an HTML summary fragment
+# that we parse in api._parse_summary_html().
+CLOUD_DATA_PATH = "/pool/poolSummary"
+CLOUD_DATA_FIELD_SERIAL = "serial"
+
+# --- Command endpoint: still to be captured (controls come later) ---
 CLOUD_COMMAND_PATH = "/pool/poolCommand"     # PLACEHOLDER — capture real path
-CLOUD_POOL_LIST_PATH = "/pool/getPoolList"   # PLACEHOLDER — capture real path
+CLOUD_POOL_LIST_PATH = "/pool/poolListDisplay"  # authenticated landing/list page
 
 # Local device – try these paths in order until one responds
 LOCAL_PROBE_PATHS = [
@@ -68,9 +73,12 @@ KEY_AIR_TEMP = "air_temperature"
 KEY_PH = "ph"
 KEY_ORP = "orp"
 KEY_SALINITY = "salinity"
-KEY_PUMP_SPEED = "pump_speed"        # % or RPM
+KEY_PUMP_SPEED = "pump_speed"        # RPM
 KEY_PUMP_FLOW = "pump_flow"          # m³/h
 KEY_PUMP_POWER = "pump_power"        # W
+KEY_BATTERY_VOLTAGE = "battery_voltage"  # V
+KEY_SIGNAL_STRENGTH = "signal_strength"  # dB
+KEY_INFO_MESSAGE = "info_message"    # Control Center info/error text
 
 # ---------- Switch / binary keys ----------
 KEY_PUMP = "pump"

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import html as _html
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -11,6 +13,7 @@ import aiohttp
 from .const import (
     CLOUD_BASE_URL,
     CLOUD_COMMAND_PATH,
+    CLOUD_DATA_FIELD_SERIAL,
     CLOUD_DATA_PATH,
     CLOUD_LOGIN_FIELD_PASS,
     CLOUD_LOGIN_FIELD_USER,
@@ -22,9 +25,11 @@ from .const import (
     KEY_AUX_1,
     KEY_AUX_2,
     KEY_AUX_3,
+    KEY_BATTERY_VOLTAGE,
     KEY_CHLORINATOR,
     KEY_FILTRATION,
     KEY_HEATING,
+    KEY_INFO_MESSAGE,
     KEY_LIGHT,
     KEY_ORP,
     KEY_ORP_DOSING,
@@ -35,6 +40,7 @@ from .const import (
     KEY_PUMP_POWER,
     KEY_PUMP_SPEED,
     KEY_SALINITY,
+    KEY_SIGNAL_STRENGTH,
     KEY_TARGET_ORP,
     KEY_TARGET_PH,
     KEY_TARGET_TEMP,
@@ -86,6 +92,13 @@ class PoolData:
     aux_2: bool | None = None
     aux_3: bool | None = None
 
+    # Diagnostics
+    battery_voltage: float | None = None  # V
+    signal_strength: float | None = None  # dB
+    cover: bool | None = None
+    info_message: str | None = None
+    updated: str | None = None
+
     # Setpoints
     target_temperature: float | None = None
     target_ph: float | None = None
@@ -104,6 +117,9 @@ class PoolData:
             KEY_PUMP_SPEED: self.pump_speed,
             KEY_PUMP_FLOW: self.pump_flow,
             KEY_PUMP_POWER: self.pump_power,
+            KEY_BATTERY_VOLTAGE: self.battery_voltage,
+            KEY_SIGNAL_STRENGTH: self.signal_strength,
+            KEY_INFO_MESSAGE: self.info_message,
             KEY_PUMP: self.pump,
             KEY_HEATING: self.heating,
             KEY_LIGHT: self.light,
@@ -209,61 +225,102 @@ def _map_local_response(data: dict) -> PoolData:
     )
 
 
-def _map_cloud_response(data: dict) -> PoolData:
-    """
-    Map an intellipool.eu cloud JSON response to PoolData.
+def _text_num(s: str | None) -> float | None:
+    """Extract the first number from a text label (handles '+23.5 °C', '104 mV')."""
+    if s is None:
+        return None
+    m = re.search(r"[-+]?\d+(?:\.\d+)?", s.replace(",", "."))
+    return float(m.group()) if m else None
 
-    The cloud API is not officially published.  Endpoints and key names were
-    inferred from the web portal.  Update this function if needed after
-    inspecting actual API traffic with browser developer tools.
-    """
-    pool = data.get("pool", data)
-    measures = pool.get("measures", pool.get("mesures", {}))
-    equip = pool.get("equipment", pool.get("equipments", pool.get("circuits", {})))
 
-    def mget(*keys):
-        for k in keys:
-            if k in measures:
-                return measures[k]
+def _clean_text(s: str | None) -> str:
+    """Unescape HTML entities and collapse whitespace."""
+    return re.sub(r"\s+", " ", _html.unescape(s or "")).strip()
+
+
+def _map_cloud_response(raw_html: str) -> PoolData:
+    """
+    Parse the HTML summary fragment returned by POST /pool/poolSummary.
+
+    intellipool.eu is a server-rendered PHP/w2ui app: the "summary" endpoint
+    returns an HTML dialog (NOT JSON) whose structure is stable. This parser
+    is verified against real INTP-1010B output (see tests/sample_summary.html).
+    """
+    data = PoolData(raw={"html": raw_html})
+
+    # --- status LEDs encoded in image filenames, e.g. .../led/filtration_on.png
+    leds = re.findall(r"/led/([a-z0-9_]+)\.png", raw_html)
+
+    def led_state(prefix: str) -> bool | None:
+        if f"{prefix}_on" in leds:
+            return True
+        if f"{prefix}_off" in leds:
+            return False
         return None
 
-    def eget(*keys):
-        for k in keys:
-            if k in equip:
-                return equip[k]
-            if k in pool:
-                return pool[k]
-        return None
+    data.filtration = led_state("filtration")
+    data.light = led_state("lighting")
+    data.heating = led_state("heating")
+    data.cover = led_state("rollo_cover")
+    # The filtration pump follows the filtration state.
+    if data.filtration is not None:
+        data.pump = data.filtration
 
-    return PoolData(
-        water_temperature=_parse_float(
-            mget("waterTemp", "waterTemperature", "tempEau", "poolTemp")),
-        air_temperature=_parse_float(
-            mget("airTemp", "airTemperature", "tempAir")),
-        ph=_parse_float(mget("ph", "pH", "phValue")),
-        orp=_parse_float(mget("orp", "ORP", "redox")),
-        salinity=_parse_float(mget("salinity", "salt", "salinite")),
-        pump_speed=_parse_float(
-            mget("pumpSpeed", "pumpRPM", "vitessePompe")),
-        pump_flow=_parse_float(mget("pumpFlow", "flow")),
-        pump_power=_parse_float(mget("pumpPower", "power")),
-        pump=_parse_bool(eget("pump", "pompe", "pumpStatus")),
-        heating=_parse_bool(eget("heating", "heater", "chauffage")),
-        light=_parse_bool(eget("light", "lighting", "eclairage")),
-        chlorinator=_parse_bool(
-            eget("chlorinator", "electrolyse", "electrolyseur")),
-        ph_dosing=_parse_bool(eget("phDosing", "pompeAcide")),
-        orp_dosing=_parse_bool(eget("orpDosing", "chloreDosing")),
-        filtration=_parse_bool(eget("filtration", "filter")),
-        aux_1=_parse_bool(eget("aux1", "auxiliaire1")),
-        aux_2=_parse_bool(eget("aux2", "auxiliaire2")),
-        aux_3=_parse_bool(eget("aux3", "auxiliaire3")),
-        target_temperature=_parse_float(
-            eget("targetTemp", "consigneTemp", "setpointTemp")),
-        target_ph=_parse_float(eget("targetPh", "consignePh")),
-        target_orp=_parse_float(eget("targetOrp", "consigneOrp")),
-        raw=data,
-    )
+    # --- measurement rows (each is a flat <div class="summary-item"> … </div>)
+    for block in re.findall(
+        r'<div class="summary-item"[^>]*>(.*?)</div>', raw_html, re.S
+    ):
+        tm = re.search(r'summary-title"?\s*>\s*<label>(.*?)</label>', block, re.S)
+        title = _clean_text(tm.group(1)) if tm else ""
+        vm = re.search(
+            r'summary-value(?:-ok|-bad)?"?\s*>\s*<label>(.*?)</label>', block, re.S
+        )
+        value = _clean_text(vm.group(1)) if vm else ""
+        sm = re.search(
+            r'summary-setpoint"?\s*>\s*<label>(.*?)</label>', block, re.S
+        )
+        setpoint = _clean_text(sm.group(1)) if sm else ""
+
+        t = title.lower()
+        val = _text_num(value)
+        sp = _text_num(setpoint)
+        sp_mode = None
+        if setpoint:
+            mode_match = re.match(r"\s*([A-Za-z]+)\s*:", setpoint)
+            sp_mode = mode_match.group(1).lower() if mode_match else None
+        dosing_on = sp_mode not in (None, "off")
+
+        if "air" in t:
+            data.air_temperature = val
+        elif "water" in t:
+            data.water_temperature = val
+            data.target_temperature = sp
+        elif t == "ph":
+            data.ph = val
+            data.target_ph = sp
+            data.ph_dosing = dosing_on
+        elif "conduct" in t:
+            data.salinity = val
+        elif "orp" in t or "redox" in t:
+            data.orp = val
+            data.target_orp = sp
+            data.orp_dosing = dosing_on
+        elif "speed" in t:
+            data.pump_speed = val  # RPM
+        elif "capacity" in t or "watt" in value.lower():
+            data.pump_power = val
+
+    # --- diagnostics from <img> title attributes and info text ---
+    bm = re.search(r'class="battery"[^>]*title="([^"]*)"', raw_html)
+    data.battery_voltage = _text_num(bm.group(1)) if bm else None
+    rm = re.search(r'class="radio"[^>]*title="([^"]*)"', raw_html)
+    data.signal_strength = _text_num(rm.group(1)) if rm else None
+    im = re.search(r'class="ui-error-info">(.*?)</p>', raw_html, re.S)
+    data.info_message = _clean_text(im.group(1)) if im else None
+    dm = re.search(r'class="date">(.*?)</label>', raw_html, re.S)
+    data.updated = _clean_text(dm.group(1)) if dm else None
+
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -463,52 +520,60 @@ class IntelliPoolCloudAPI:
                 if "poolLogin/login" in body and 'name="pass"' in body:
                     raise InvalidAuth("intellipool.eu rejected the credentials")
                 _LOGGER.debug("Cloud login OK, landed on %s", resp.url)
-                # Try to discover pool_id from the authenticated landing page
+                # The authenticated landing page lists pools as
+                # javascript:displaySummary('<serial>') links — grab the serial.
                 if self._pool_id is None:
-                    await self._discover_pool_id(session)
+                    self._extract_serial(body)
+                    if self._pool_id is None:
+                        await self._discover_pool_id(session)
         except aiohttp.ClientError as err:
             raise CannotConnect(f"Cloud login error: {err}") from err
 
+    def _extract_serial(self, body: str) -> None:
+        """Find the pool serial from displaySummary('...') links in a page."""
+        m = re.search(r"displaySummary\(['\"](\d+)['\"]\)", body)
+        if m:
+            self._pool_id = m.group(1)
+            _LOGGER.info("Discovered pool serial: %s", self._pool_id)
+
     async def _discover_pool_id(self, session: aiohttp.ClientSession) -> None:
+        """Fallback: fetch the pool-list page and extract the serial."""
         url = f"{CLOUD_BASE_URL}{CLOUD_POOL_LIST_PATH}"
         try:
             async with session.get(url) as resp:
                 if resp.status == 200:
-                    data = await resp.json(content_type=None)
-                    pools = data if isinstance(data, list) else data.get("pools", [])
-                    if pools:
-                        self._pool_id = str(
-                            pools[0].get("id", pools[0].get("poolId", ""))
-                        )
-                        _LOGGER.info(
-                            "Discovered pool ID: %s", self._pool_id
-                        )
+                    self._extract_serial(await resp.text(errors="replace"))
         except Exception as err:
-            _LOGGER.debug("Could not auto-discover pool ID: %s", err)
+            _LOGGER.debug("Could not auto-discover pool serial: %s", err)
 
     async def get_data(self) -> PoolData:
-        """Fetch current pool state from the cloud."""
+        """Fetch current pool state from POST /pool/poolSummary (HTML fragment)."""
+        if not self._pool_id:
+            raise CannotConnect(
+                "No pool serial known. Set it in the integration options "
+                "(the number in displaySummary('<serial>') on intellipool.eu)."
+            )
         session = await self._get_session()
-        params = {}
-        if self._pool_id:
-            params["poolId"] = self._pool_id
-
         url = f"{CLOUD_BASE_URL}{CLOUD_DATA_PATH}"
+        payload = {CLOUD_DATA_FIELD_SERIAL: self._pool_id}
         try:
-            async with session.get(url, params=params) as resp:
-                if resp.status == 401:
-                    _LOGGER.debug("Session expired, re-authenticating")
-                    await self.login()
-                    async with session.get(url, params=params) as resp2:
-                        resp2.raise_for_status()
-                        raw = await resp2.json(content_type=None)
-                else:
-                    resp.raise_for_status()
-                    raw = await resp.json(content_type=None)
-            _LOGGER.debug("Intellipool cloud raw data: %s", raw)
-            return _map_cloud_response(raw)
+            html_body = await self._post_summary(session, url, payload)
+            # A session timeout returns the login page instead of the summary.
+            if "poolLogin/login" in html_body or "summary" not in html_body:
+                _LOGGER.debug("Cloud session expired, re-authenticating")
+                await self.login()
+                html_body = await self._post_summary(session, url, payload)
+            _LOGGER.debug("Intellipool cloud raw data (%d bytes)", len(html_body))
+            return _map_cloud_response(html_body)
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise CannotConnect(f"Cloud data fetch failed: {err}") from err
+
+    async def _post_summary(
+        self, session: aiohttp.ClientSession, url: str, payload: dict
+    ) -> str:
+        async with session.post(url, data=payload) as resp:
+            resp.raise_for_status()
+            return await resp.text(errors="replace")
 
     async def send_command(self, key: str, value: Any) -> None:
         """Send a control command via the cloud service."""
