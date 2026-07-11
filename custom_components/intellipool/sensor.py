@@ -29,6 +29,7 @@ from .const import (
     DOMAIN,
     KEY_AIR_TEMP,
     KEY_BATTERY_VOLTAGE,
+    KEY_DATA_SOURCE,
     KEY_INFO_MESSAGE,
     KEY_ORP,
     KEY_PH,
@@ -148,6 +149,13 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
         name="Statusmeddelande",
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:information-outline",
+    ),
+    IntelliPoolSensorDescription(
+        key="data_source",
+        data_key=KEY_DATA_SOURCE,
+        name="Datakälla",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:database-sync",
     ),
 )
 

@@ -8,15 +8,19 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNA
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import CannotConnect, IntelliPoolAPI
+from .api import CannotConnect, IntelliPoolAPI, IntelliPoolOfficialAPI
 from .const import (
+    CONF_API_KEY,
     CONF_CONNECTION_TYPE,
+    CONF_INSTALL_ID,
     CONF_POOL_ID,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
+    CONF_STALE_MINUTES,
     CONN_TYPE_LOCAL,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_STALE_MINUTES,
     DOMAIN,
 )
 from .coordinator import IntelliPoolCoordinator
@@ -44,6 +48,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         username=entry.data.get(CONF_USERNAME),
         password=entry.data.get(CONF_PASSWORD),
         pool_id=entry.data.get(CONF_POOL_ID),
+        install_id=entry.data.get(CONF_INSTALL_ID),
+        api_key=entry.data.get(CONF_API_KEY),
     )
 
     try:
@@ -52,7 +58,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Intellipool connection failed: %s", err)
         return False
 
-    coordinator = IntelliPoolCoordinator(hass, api, scan_interval)
+    # Optional failsafe: the official API, used when the primary goes stale/down.
+    # (Not built when the primary IS the official API.)
+    fallback = None
+    api_key = entry.data.get(CONF_API_KEY)
+    install_id = entry.data.get(CONF_INSTALL_ID)
+    if conn_type != "official" and api_key and install_id:
+        fallback = IntelliPoolOfficialAPI(
+            install_id=install_id,
+            api_key=api_key,
+            session=async_get_clientsession(hass),
+        )
+        _LOGGER.debug("Official-API failsafe enabled (install %s)", install_id)
+
+    coordinator = IntelliPoolCoordinator(
+        hass,
+        api,
+        scan_interval,
+        fallback=fallback,
+        stale_minutes=entry.options.get(
+            CONF_STALE_MINUTES, DEFAULT_STALE_MINUTES
+        ),
+    )
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
