@@ -33,6 +33,7 @@ PLATFORMS: list[Platform] = [
     Platform.CLIMATE,
     Platform.NUMBER,
     Platform.SELECT,
+    Platform.TEXT,
 ]
 
 
