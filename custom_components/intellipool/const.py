@@ -224,3 +224,14 @@ SETPOINT_FIELD_MAP = {
     KEY_TARGET_PH: "setpoint_ph",
     KEY_TARGET_ORP: "setpoint_orp",
 }
+
+# Select entities: full mode selectors (value → label), written as raw control
+# values via /pool/ajaxCommands/save. Current mode is read from command_state.
+FILTRATION_MODES = {"0": "Auto", "1": "På", "2": "Av", "3": "Timer", "4": "Chock"}
+LIGHTING_MODES = {"0": "På", "1": "Timer", "2": "Av"}
+
+# HA select command key → (device field, value→label map)
+RAW_CONTROL_MAP = {
+    "filtration_mode": ("filtration", FILTRATION_MODES),
+    "lighting_mode": ("lighting", LIGHTING_MODES),
+}

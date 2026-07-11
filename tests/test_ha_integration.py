@@ -101,6 +101,13 @@ async def test_data_flows_into_ha_entities(
     assert pump is not None
     assert hass.states.get(pump.entity_id).state == "on"
 
+    # Mode select entities are created (current option unknown via official API).
+    filt_select = next(
+        (e for e in ours if e.unique_id == f"{entry.entry_id}_filtration_mode"), None
+    )
+    assert filt_select is not None
+    assert filt_select.domain == "select"
+
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
