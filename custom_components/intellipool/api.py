@@ -880,6 +880,7 @@ class IntelliPoolAPI:
         pool_id: str | None = None,
         install_id: str | None = None,
         api_key: str | None = None,
+        session: aiohttp.ClientSession | None = None,
     ) -> None:
         self._type = connection_type
         self._backend: (
@@ -892,17 +893,20 @@ class IntelliPoolAPI:
                 ssl=ssl,
                 username=username,
                 password=password,
+                session=session,
             )
         elif connection_type == CONN_TYPE_OFFICIAL:
             self._backend = IntelliPoolOfficialAPI(
                 install_id=install_id or "",
                 api_key=api_key or "",
+                session=session,
             )
         else:
             self._backend = IntelliPoolCloudAPI(
                 username=username or "",
                 password=password or "",
                 pool_id=pool_id,
+                session=session,
             )
 
     async def async_init(self) -> None:
