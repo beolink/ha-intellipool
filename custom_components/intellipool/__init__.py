@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import logging
 
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import CannotConnect, IntelliPoolAPI, IntelliPoolOfficialAPI
 from .const import (
+    ATTR_DAYS,
     CONF_API_KEY,
     CONF_CONNECTION_TYPE,
     CONF_INSTALL_ID,
@@ -18,12 +21,15 @@ from .const import (
     CONF_SSL,
     CONF_STALE_MINUTES,
     CONN_TYPE_LOCAL,
+    DEFAULT_HISTORY_DAYS,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STALE_MINUTES,
     DOMAIN,
+    SERVICE_IMPORT_HISTORY,
 )
 from .coordinator import IntelliPoolCoordinator
+from .history import async_import_history
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +95,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    _async_register_services(hass)
+
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     return True
@@ -106,3 +114,38 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update (e.g. changed scan interval)."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+IMPORT_HISTORY_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_DAYS, default=DEFAULT_HISTORY_DAYS): vol.All(
+            int, vol.Range(min=1, max=365)
+        ),
+    }
+)
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register integration services once."""
+    if hass.services.has_service(DOMAIN, SERVICE_IMPORT_HISTORY):
+        return
+
+    async def _handle_import_history(call: ServiceCall) -> None:
+        days = call.data.get(ATTR_DAYS, DEFAULT_HISTORY_DAYS)
+        for entry_id, coordinator in list(hass.data.get(DOMAIN, {}).items()):
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry is None:
+                continue
+            try:
+                await async_import_history(hass, entry, coordinator, days)
+            except CannotConnect as err:
+                _LOGGER.warning(
+                    "History import skipped for %s: %s", entry.title, err
+                )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_IMPORT_HISTORY,
+        _handle_import_history,
+        schema=IMPORT_HISTORY_SCHEMA,
+    )

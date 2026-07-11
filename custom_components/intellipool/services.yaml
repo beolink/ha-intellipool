@@ -1,0 +1,18 @@
+import_history:
+  name: Importera historik
+  description: >-
+    Bakåtfyller Home Assistants långtidsstatistik med timvärden från
+    intellipool.eu (vattentemp, pH, ORP, salt, pumpeffekt/varvtal, batteri,
+    signal). Kräver molnanslutning.
+  fields:
+    days:
+      name: Antal dagar
+      description: Hur många dygn bakåt som ska importeras.
+      default: 7
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 365
+          unit_of_measurement: dagar
+          mode: box

@@ -228,6 +228,12 @@ def test_intelliflo_override_changes_only_target():
     )
 
 
+def test_parse_history_values():
+    api = _load_api()
+    got = api.parse_history_values(["+23.9", "--", "700", "5.95", "-79", "", None])
+    assert got == [23.9, None, 700.0, 5.95, -79.0, None, None]
+
+
 if __name__ == "__main__":
     test_control_body_matches_live()
     test_control_off_maps_correctly()
@@ -237,4 +243,5 @@ if __name__ == "__main__":
     test_schedule_override_changes_only_timer()
     test_intelliflo_body_matches_app_serialize()
     test_intelliflo_override_changes_only_target()
+    test_parse_history_values()
     print("All write-path tests passed (control + setpoint bodies match ground truth).")

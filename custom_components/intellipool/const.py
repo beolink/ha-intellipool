@@ -275,3 +275,26 @@ INTELLIFLO_SPEED_MAP = {
     "speed_choc": "mode_choc_speed",
 }
 INTELLIFLO_SPEED_STEP = 20
+
+# --- Historic backfill (long-term statistics import) ---
+# GET /pool/ajaxHistoric/getJsonValues?serial=&date=<Y-m-d>&type_date=DAY|MONTH|YEAR
+# → {status, typeDate, records:[{typeInfo, values[], min, max, avg}]}
+# DAY gives hourly values (index = hour). Session-based (cloud only).
+CLOUD_HISTORY_PATH = "/pool/ajaxHistoric/getJsonValues"
+
+# Historic typeInfo → sensor description key (statistics land on that sensor).
+HISTORY_SENSOR_MAP = {
+    "WATER_TEMP": "water_temperature",
+    "AIR_TEMP": "air_temperature",
+    "PH": "ph",
+    "ORP": "orp",
+    "CONDUCTIVITY": "salinity",
+    "PENTAIR_FILTRATION_POWER": "pump_power",
+    "PENTAIR_FILTRATION_PUMP_RPM": "pump_speed",
+    "BATTERY_PEROK": "battery_voltage",
+    "RSSI": "signal_strength",
+}
+
+SERVICE_IMPORT_HISTORY = "import_history"
+ATTR_DAYS = "days"
+DEFAULT_HISTORY_DAYS = 7
