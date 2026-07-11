@@ -50,6 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         pool_id=entry.data.get(CONF_POOL_ID),
         install_id=entry.data.get(CONF_INSTALL_ID),
         api_key=entry.data.get(CONF_API_KEY),
+        session=async_get_clientsession(hass),
     )
 
     try:

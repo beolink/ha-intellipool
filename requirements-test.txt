@@ -1,0 +1,9 @@
+# Dev/test dependencies for the Home Assistant pipeline test.
+#   python3.13 -m venv .venv && .venv/bin/pip install -r requirements-test.txt
+#   .venv/bin/pytest tests/test_ha_integration.py -v
+#
+# The pure-logic tests need no dependencies:
+#   python3 tests/test_summary_parser.py
+#   python3 tests/test_official_parser.py
+#   python3 tests/test_write_paths.py
+pytest-homeassistant-custom-component
