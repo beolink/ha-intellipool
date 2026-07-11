@@ -288,13 +288,17 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected cloud login error")
                 errors["base"] = "unknown"
             else:
-                if api.pool_id:
-                    user_input[CONF_POOL_ID] = api.pool_id
-                self._data.update(user_input)
-                return self.async_create_entry(
-                    title=f"Intellipool ({user_input[CONF_USERNAME]})",
-                    data=self._data,
-                )
+                serial = api.pool_id or (user_input.get(CONF_POOL_ID) or None)
+                if not serial:
+                    # Login worked but we could not auto-detect the pool serial.
+                    errors["base"] = "no_serial"
+                else:
+                    user_input[CONF_POOL_ID] = serial
+                    self._data.update(user_input)
+                    return self.async_create_entry(
+                        title=f"Intellipool ({user_input[CONF_USERNAME]})",
+                        data=self._data,
+                    )
 
         return self.async_show_form(
             step_id="cloud",

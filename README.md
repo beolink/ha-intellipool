@@ -16,10 +16,13 @@ Stöder:
 | `sensor` | Lufttemperatur | °C |
 | `sensor` | pH | pH-värde |
 | `sensor` | ORP / Redox | mV |
-| `sensor` | Salthalt | g/L |
-| `sensor` | Pumphastighet | % |
+| `sensor` | Salthalt (konduktivitet) | g/L |
+| `sensor` | Filtreringshastighet | rpm |
 | `sensor` | Pumpflöde | m³/h |
 | `sensor` | Pumpeffekt | W |
+| `sensor` | Sensorbatteri (diagnostik) | V |
+| `sensor` | Radiosignal (diagnostik) | dB |
+| `sensor` | Statusmeddelande (diagnostik) | text |
 | `switch` | Pump | På/av |
 | `switch` | Filtrering | På/av |
 | `switch` | Uppvärmning | På/av |
@@ -78,49 +81,44 @@ enheter med öppen webbserver) och för avancerad proxy-uppsättning (se längst
 2. Ange din e-postadress och lösenord för intellipool.eu
 3. Pool-ID identifieras automatiskt (eller ange manuellt)
 
-> **Status:** Login-flödet är verifierat och fungerar. Data- och kommando-endpointsen
-> ligger bakom en inloggad session och måste fångas en gång via DevTools — se nedan.
-> Tills dess är moln-data-hämtningen inte fullständig.
+> **Status:** Login **och sensordata fungerar** (verifierat mot riktig INTP-1010B).
+> Kvar att fånga är endast **styr-kommandona** (pump/värme/ljus) — se nedan.
+
+### Vad som är bekräftat och inbyggt
+
+`intellipool.eu` är en äldre **PHP-app bakom nginx** (jQuery 1.7.2 + w2ui), `PHPSESSID`-session.
+
+| Del | Status | Detalj |
+|---|---|---|
+| Login | ✅ Bekräftat | `POST /pool/poolLogin/login`, fält `login` + `pass` (klartext/TLS) |
+| Serienummer | ✅ Auto | Extraheras från `displaySummary('<serial>')` på landningssidan |
+| **Sensordata** | ✅ Bekräftat | `POST /pool/poolSummary` med `serial=<n>` → **HTML** som parsas till alla mätvärden |
+| Styr-kommandon | ⏳ Kvar | Fångas via DevTools (se nedan) |
+
+Datasvaret är alltså **HTML** (inte JSON) — pluginen parsar det i `_map_cloud_response()`
+i [`api.py`](custom_components/intellipool/api.py), regressionstestat i
+[`tests/test_summary_parser.py`](tests/test_summary_parser.py).
 
 ---
 
-## Fånga moln-API:et (engångsjobb för full funktion)
+## Fånga styr-kommandona (återstår för att kunna styra)
 
-`intellipool.eu` är en äldre **PHP-app bakom nginx** (jQuery 1.7.2 + w2ui). Det vi vet:
+När du vill kunna **styra** poolen (inte bara läsa av) behöver kommando-anropen fångas:
 
-**Bekräftat (inbyggt i pluginen):**
-- **Login:** `POST https://www.intellipool.eu/pool/poolLogin/login`
-  med form-fälten `login` (e-post) och `pass` (lösenord), klartext över HTTPS
-- **Session:** en `PHPSESSID`-cookie sätts och gäller för alla efterföljande anrop
-- **AJAX-mönster:** appen använder `/pool/ajax<Controller>/<action>`
-  (t.ex. `/pool/ajaxCreateAccount/checkValidEmail`, `/pool/ajaxEula/getLastText`)
+1. Öppna [intellipool.eu](https://www.intellipool.eu), logga in, tryck **Cmd+Option+I**
+   (Mac) / **F12** → fliken **Network**
+2. Bocka i **Preserve log**, filtrera på `XHR`
+3. Tryck en styrknapp i gränssnittet (t.ex. tänd belysning, ändra ett börvärde)
+4. Notera anropet som dyker upp: **Request URL**, **Method**, och **payload**
+   (troligen `/pool/ajax…` eller liknande med `serial=` + kommandoparametrar)
 
-**Måste fångas en gång (kräver din inloggade session):** de exakta
-data- och kommando-endpointsen samt deras JSON-format.
+Enklast via Console: kör `funktionsnamn.toString()` på styrfunktionen (som vi gjorde
+med `displaySummary`) så syns exakt URL och parametrar. Klistra in i ett
+[GitHub-issue](https://github.com/beolink/ha-intellipool/issues) så bygger vi in
+`send_command()` och `CLOUD_COMMAND_PATH`.
 
-### Recept (2 minuter i Chrome/Firefox)
-
-1. Öppna [intellipool.eu](https://www.intellipool.eu) och tryck **F12** → fliken **Network**
-2. Bocka i **Preserve log** (Behåll logg)
-3. Logga in och öppna din pool-vy så att mätvärdena visas
-4. Filtrera på `ajax` (eller `XHR`) i Network-listan
-5. Klicka på anropen och notera för var och en:
-   - **Request URL** (t.ex. `/pool/ajaxPool/getData?id_key=...`)
-   - **Method** (GET/POST) och **payload/parametrar** (särskilt `id_key` eller `serial`)
-   - **Response** (JSON) — nyckelnamnen för pH, ORP/redox, temperatur, pump osv.
-6. Tryck på en styrknapp (t.ex. tänd belysning) och fånga **kommando-anropet** på samma sätt
-
-Klistra sedan in dessa i ett [GitHub-issue](https://github.com/beolink/ha-intellipool/issues)
-eller uppdatera själv:
-- `CLOUD_DATA_PATH`, `CLOUD_COMMAND_PATH`, `CLOUD_POOL_LIST_PATH` i
-  [`const.py`](custom_components/intellipool/const.py)
-- nyckelnamnen i `_map_cloud_response()` i
-  [`api.py`](custom_components/intellipool/api.py)
-
-> **Tips:** Högerklicka på ett anrop i DevTools → *Copy → Copy as cURL* fångar
-> URL, headers och payload på en gång. Exportera hela sessionen med
-> *Save all as HAR* om du vill dela allt (ta bort `PHPSESSID`-cookien och
-> ditt lösenord först — de finns i HAR-filen).
+> **Tips:** *Copy → Copy as cURL* på ett anrop fångar URL + payload på en gång.
+> Delar du en HAR-fil: ta bort `PHPSESSID`-cookien och lösenordet först.
 
 ### Avancerat: äkta lokal styrning via trafik-proxy
 

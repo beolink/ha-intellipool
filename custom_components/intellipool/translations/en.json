@@ -32,7 +32,7 @@
         "data": {
           "username": "Email address",
           "password": "Password",
-          "pool_id": "Pool ID (leave blank for auto-detection)"
+          "pool_id": "Pool serial (leave blank for auto-detection)"
         }
       }
     },
@@ -40,6 +40,7 @@
       "cannot_connect": "Unable to connect. Check the IP address and network.",
       "invalid_auth": "Invalid credentials.",
       "endpoint_not_found": "No local API found on the device. See README for protocol discovery instructions.",
+      "no_serial": "Login OK but the pool serial could not be auto-detected. Enter it manually (the number in displaySummary('...') on intellipool.eu).",
       "unknown": "Unexpected error. Check logs for details."
     },
     "abort": {

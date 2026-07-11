@@ -12,7 +12,9 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    PERCENTAGE,
+    REVOLUTIONS_PER_MINUTE,
+    EntityCategory,
+    SIGNAL_STRENGTH_DECIBELS,
     UnitOfElectricPotential,
     UnitOfPower,
     UnitOfTemperature,
@@ -26,12 +28,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     DOMAIN,
     KEY_AIR_TEMP,
+    KEY_BATTERY_VOLTAGE,
+    KEY_INFO_MESSAGE,
     KEY_ORP,
     KEY_PH,
     KEY_PUMP_FLOW,
     KEY_PUMP_POWER,
     KEY_PUMP_SPEED,
     KEY_SALINITY,
+    KEY_SIGNAL_STRENGTH,
     KEY_WATER_TEMP,
     MANUFACTURER,
     MODEL,
@@ -93,8 +98,8 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="pump_speed",
         data_key=KEY_PUMP_SPEED,
-        name="Pumphastighet",
-        native_unit_of_measurement=PERCENTAGE,
+        name="Filtreringshastighet",
+        native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:pump",
     ),
@@ -115,6 +120,34 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:lightning-bolt-circle",
+    ),
+    IntelliPoolSensorDescription(
+        key="battery_voltage",
+        data_key=KEY_BATTERY_VOLTAGE,
+        name="Sensorbatteri",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:battery",
+        suggested_display_precision=2,
+    ),
+    IntelliPoolSensorDescription(
+        key="signal_strength",
+        data_key=KEY_SIGNAL_STRENGTH,
+        name="Radiosignal",
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS,
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:radio-tower",
+    ),
+    IntelliPoolSensorDescription(
+        key="info_message",
+        data_key=KEY_INFO_MESSAGE,
+        name="Statusmeddelande",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:information-outline",
     ),
 )
 
