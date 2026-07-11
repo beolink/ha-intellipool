@@ -177,10 +177,23 @@ bekräftat ordern (`<order current="true" failed="false"/>`) — den asynkrona
 > inställningar rörs. Belysningsstyrningen är live-testad; börvärdes-kroppen är
 > byte-validerad mot appen.
 
-### Ännu ej inbyggt
-IntelliFlo pumpvarvtal (`/pool/ajaxIntelliFlo`), scheman (`timer_*`), och historik
-(`api.domotique-piscine.eu/poolLastValues`) är kartlagda men inte exponerade som
-entiteter än.
+### Roadmap
+
+Kartlagt (endpoints/fixtures finns) men inte inbyggt än, i ungefärlig prioritetsordning:
+
+- [ ] **Verifiera i skarp HA** — ladda integrationen i en riktig instans, bekräfta att
+  entiteter dyker upp, data uppdateras och en styrning går igenom (allt hittills är
+  offline-/enhetsvaliderat + ett live styr-test)
+- [ ] **Filtration som `select`** (Auto/På/Av/Timer/Chock) i stället för bara på/av-switch
+- [ ] **IntelliFlo pumpvarvtal** — `/pool/ajaxIntelliFlo/get|save` (number/select för hastighet)
+- [ ] **Schemastyrning** — `timer_filtration` / `timer_lighting` / `timer_aux1` (24-tecken/tim)
+- [ ] **Kvalitetspolish** — hassfest/HACS-CI grönt, robustare session-återinloggning,
+  fler tester, quality scale
+- [ ] **Historik-import (tungt, längst ner)** — bakåtfyll gamla mätvärden från
+  `api.domotique-piscine.eu/poolLastValues` till HA:s långtidsstatistik via
+  `async_import_statistics`. Kräver: fastställa `poolLastValues`-parametrarna
+  (serienummer-param + datumintervall + nyckel), parsa dataformatet, mappa till
+  statistik-tabellerna (timvisa buckets, korrekt metadata)
 
 ### Avancerat: äkta lokal styrning via trafik-proxy
 
