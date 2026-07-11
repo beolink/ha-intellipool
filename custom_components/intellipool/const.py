@@ -24,12 +24,23 @@ DEFAULT_PORT = 80
 DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_SSL = False
 
-# Cloud service
+# Cloud service (intellipool.eu)
+# NOTE: intellipool.eu is an older server-rendered jQuery/w2ui web app.
+# The login flow below is CONFIRMED from the public login page. The data and
+# command paths are NOT yet confirmed — they live behind the authenticated
+# session and must be captured with browser DevTools (see README → "Fånga
+# moln-API:et"). Update them once captured.
 CLOUD_BASE_URL = "https://www.intellipool.eu"
-CLOUD_LOGIN_PATH = "/pool/poolLoginAjax"
-CLOUD_DATA_PATH = "/pool/getPoolData"
-CLOUD_COMMAND_PATH = "/pool/poolCommand"
-CLOUD_POOL_LIST_PATH = "/pool/getPoolList"
+
+# --- Confirmed from the public login page ---
+CLOUD_LOGIN_PATH = "/pool/poolLogin/login"   # POST, form-urlencoded
+CLOUD_LOGIN_FIELD_USER = "login"             # username / e-mail field
+CLOUD_LOGIN_FIELD_PASS = "pass"              # password field (plaintext over TLS)
+
+# --- Placeholders: must be captured via DevTools, then set here ---
+CLOUD_DATA_PATH = "/pool/getPoolData"        # PLACEHOLDER — capture real path
+CLOUD_COMMAND_PATH = "/pool/poolCommand"     # PLACEHOLDER — capture real path
+CLOUD_POOL_LIST_PATH = "/pool/getPoolList"   # PLACEHOLDER — capture real path
 
 # Local device – try these paths in order until one responds
 LOCAL_PROBE_PATHS = [

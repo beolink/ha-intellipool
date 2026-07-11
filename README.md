@@ -51,79 +51,88 @@ Starta om Home Assistant, gå sedan till **Inställningar → Enheter & tjänste
 
 ## Konfiguration
 
-### Lokal anslutning
+### ⚠️ Viktigt om INTP-1010B och lokal anslutning
 
-1. Ta reda på din INTP-1010B:s IP-adress (se routerns DHCP-lista eller Intellipool-appen)
-2. Välj **Lokal anslutning** i config-flödet
-3. Ange IP-adress (t.ex. `192.168.1.45`)
-4. Lämna port på `80` (eller testa `8080` / `443` om det inte fungerar)
-5. Om controllern kräver autentisering — ange användarnamn och lösenord
+**INTP-1010B kör ingen lokal server.** Detta är verifierat empiriskt (juli 2026) mot
+en riktig enhet på `10.0.11.44`:
 
-> **OBS:** Intellipool INTP-1010B har inget officiellt dokumenterat lokalt API.
-> Se avsnittet "Protokoll-discovery" nedan om integrationen inte hittar någon endpoint automatiskt.
+| Test | Resultat |
+|---|---|
+| ARP (lager 2) | ✅ Enheten svarar — MAC `00:0B:3C` (Cygnal / Silicon Labs, egen inbäddad modul) |
+| ICMP ping | ❌ Blockeras |
+| **Alla 65535 TCP-portar** | ❌ **Inga öppna** — alla anslutningar tyst-droppas |
+| UDP mDNS / SSDP / beacons | ❌ Enheten annonserar/sänder ingenting |
 
-### Molnanslutning
+Enheten gör **enbart utgående** anslutningar till `intellipool.eu`. Det finns alltså
+ingen lokal IP-port att ansluta till — direkt lokal integration är **inte möjlig** på
+den här hårdvaran. (Samma gäller europeiska Hayward/Bayrol — alla är molnbaserade.)
+
+Den lokala anslutningstypen i pluginen finns kvar för andra/framtida modeller (t.ex.
+enheter med öppen webbserver) och för avancerad proxy-uppsättning (se längst ned).
+
+**➡️ För INTP-1010B: använd molnanslutning.**
+
+### Molnanslutning (rekommenderat för INTP-1010B)
 
 1. Välj **Molnanslutning** i config-flödet
 2. Ange din e-postadress och lösenord för intellipool.eu
 3. Pool-ID identifieras automatiskt (eller ange manuellt)
 
+> **Status:** Login-flödet är verifierat och fungerar. Data- och kommando-endpointsen
+> ligger bakom en inloggad session och måste fångas en gång via DevTools — se nedan.
+> Tills dess är moln-data-hämtningen inte fullständig.
+
 ---
 
-## Protokoll-discovery (VIKTIGT för lokal anslutning)
+## Fånga moln-API:et (engångsjobb för full funktion)
 
-Eftersom INTP-1010B:s lokala API inte är officiellt dokumenterat måste du hjälpa integrationen
-att hitta rätt endpoint. Följ dessa steg:
+`intellipool.eu` är en äldre **PHP-app bakom nginx** (jQuery 1.7.2 + w2ui). Det vi vet:
 
-### Steg 1 – Hitta enhetens IP
+**Bekräftat (inbyggt i pluginen):**
+- **Login:** `POST https://www.intellipool.eu/pool/poolLogin/login`
+  med form-fälten `login` (e-post) och `pass` (lösenord), klartext över HTTPS
+- **Session:** en `PHPSESSID`-cookie sätts och gäller för alla efterföljande anrop
+- **AJAX-mönster:** appen använder `/pool/ajax<Controller>/<action>`
+  (t.ex. `/pool/ajaxCreateAccount/checkValidEmail`, `/pool/ajaxEula/getLastText`)
 
-```bash
-# Pinga nätverket och leta efter enheten
-nmap -sP 192.168.1.0/24 | grep -i pentair
-# eller kolla routerns DHCP-tabell
-```
+**Måste fångas en gång (kräver din inloggade session):** de exakta
+data- och kommando-endpointsen samt deras JSON-format.
 
-### Steg 2 – Skanna öppna portar
+### Recept (2 minuter i Chrome/Firefox)
 
-```bash
-nmap -p 80,443,8080,8443,10000,6681 192.168.1.X
-```
+1. Öppna [intellipool.eu](https://www.intellipool.eu) och tryck **F12** → fliken **Network**
+2. Bocka i **Preserve log** (Behåll logg)
+3. Logga in och öppna din pool-vy så att mätvärdena visas
+4. Filtrera på `ajax` (eller `XHR`) i Network-listan
+5. Klicka på anropen och notera för var och en:
+   - **Request URL** (t.ex. `/pool/ajaxPool/getData?id_key=...`)
+   - **Method** (GET/POST) och **payload/parametrar** (särskilt `id_key` eller `serial`)
+   - **Response** (JSON) — nyckelnamnen för pH, ORP/redox, temperatur, pump osv.
+6. Tryck på en styrknapp (t.ex. tänd belysning) och fånga **kommando-anropet** på samma sätt
 
-### Steg 3 – Sniffa HTTP-trafiken med mitmproxy
+Klistra sedan in dessa i ett [GitHub-issue](https://github.com/beolink/ha-intellipool/issues)
+eller uppdatera själv:
+- `CLOUD_DATA_PATH`, `CLOUD_COMMAND_PATH`, `CLOUD_POOL_LIST_PATH` i
+  [`const.py`](custom_components/intellipool/const.py)
+- nyckelnamnen i `_map_cloud_response()` i
+  [`api.py`](custom_components/intellipool/api.py)
 
-Det enklaste sättet att se vad controllern skickar:
+> **Tips:** Högerklicka på ett anrop i DevTools → *Copy → Copy as cURL* fångar
+> URL, headers och payload på en gång. Exportera hela sessionen med
+> *Save all as HAR* om du vill dela allt (ta bort `PHPSESSID`-cookien och
+> ditt lösenord först — de finns i HAR-filen).
 
-```bash
-# Installera mitmproxy
-pip install mitmproxy
+### Avancerat: äkta lokal styrning via trafik-proxy
 
-# Starta proxy på port 8080
-mitmproxy --mode transparent --showhost
+Vill du ändå ha *lokal* kontroll trots molnberoendet kan du tvinga enhetens
+utgående trafik genom en maskin du styr:
 
-# Konfigurera routern att skicka controllerns trafik via proxyn
-# (eller konfigurera DNS för att fånga intellipool.eu-trafik)
-```
+1. Peka enhetens DNS för `intellipool.eu` mot din egen server (via router/Pi-hole)
+2. Kör [mitmproxy](https://mitmproxy.org/) för att se/omdirigera dess HTTPS-anrop
+3. Bygg en lokal tjänst som svarar/vidarebefordrar
 
-### Steg 4 – Alternativt: Wireshark på routern
-
-```bash
-# Om du har OpenWrt/DD-WRT på routern:
-tcpdump -i br-lan host 192.168.1.X -w /tmp/intellipool.pcap
-# Analysera sedan med Wireshark
-```
-
-### Steg 5 – Webbläsarens DevTools
-
-Logga in på [intellipool.eu](https://www.intellipool.eu) i Chrome/Firefox,
-öppna DevTools → Nätverk, och titta på vilka HTTP-anrop som görs.
-De API-anropen kommunicerar antingen direkt med din controller eller
-vidarebefordrar kommandon till den.
-
-### Steg 6 – Uppdatera integrationen
-
-När du hittat rätt endpoint och dataformat, uppdatera `_map_local_response()`
-i `custom_components/intellipool/api.py` med rätt nyckelnamn och rapportera gärna
-tillbaka så kan vi förbättra integrationen för alla!
+Detta är avsevärt mer avancerat (enheten kan cert-pinna, och det är skört vid
+firmware-uppdateringar). För de flesta är molnvägen den praktiska lösningen.
 
 ---
 
@@ -144,15 +153,16 @@ logger:
 
 | Fel | Orsak | Lösning |
 |---|---|---|
-| `endpoint_not_found` | Ingen känd API-endpoint svarar | Se protokoll-discovery ovan |
-| `cannot_connect` | Controllern är inte nåbar | Kontrollera IP och nätverk |
+| `endpoint_not_found` | Enheten har ingen lokal server (gäller INTP-1010B) | Använd molnanslutning istället |
+| `cannot_connect` | Enheten/molnet är inte nåbart | Kontrollera IP resp. internet |
 | `invalid_auth` | Fel lösenord | Kontrollera uppgifterna |
 
-### Visa rådata från controllern
+### Visa rådata
 
-I HA-loggarna (med debug aktiverat) syns alla råsvar under nyckeln
-`Intellipool local raw data:`. Kopiera detta och lägg upp i ett GitHub-issue
-så kan vi lägga till stöd för ditt specifika dataformat.
+I HA-loggarna (med debug aktiverat) syns alla råsvar under nycklarna
+`Intellipool local raw data:` respektive `Intellipool cloud raw data:`.
+Kopiera detta och lägg upp i ett GitHub-issue så kan vi lägga till stöd
+för ditt specifika dataformat.
 
 ---
 
@@ -164,6 +174,7 @@ custom_components/intellipool/
 ├── manifest.json        ← HA integration manifest
 ├── config_flow.py       ← UI config flow (lokal / moln)
 ├── coordinator.py       ← DataUpdateCoordinator (polling var 30s)
+├── discovery.py         ← Aktiv nätverkssökning (subnät + hostnamn + fingerprint)
 ├── api.py               ← API-klient (IntelliPoolLocalAPI / CloudAPI)
 ├── const.py             ← Konstanter och nyckelnamn
 ├── sensor.py            ← Mätvärden (temp, pH, ORP, pump...)
