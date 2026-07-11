@@ -190,6 +190,44 @@ def test_schedule_override_changes_only_timer():
     )
 
 
+INTELLIFLO_GET_XML = """<root><datas>
+<speed_range_min>700</speed_range_min>
+<speed_range_max>3000</speed_range_max>
+<electrolysis_filtration_speed>1500</electrolysis_filtration_speed>
+<heating_filtration_speed>700</heating_filtration_speed>
+<mode_choc_speed>1500</mode_choc_speed>
+<aux1_filtration_speed>2700</aux1_filtration_speed>
+<aux2_filtration_speed>0</aux2_filtration_speed>
+<aux3_filtration_speed>0</aux3_filtration_speed>
+<aux4_filtration_speed>0</aux4_filtration_speed>
+<setpoint_intelliflo_speed>3000</setpoint_intelliflo_speed>
+</datas></root>"""
+
+INTELLIFLO_SERIALIZE = (
+    "speed_range_min=700&speed_range_max=3000&electrolysis_filtration_speed=1500"
+    "&heating_filtration_speed=700&mode_choc_speed=1500&FILTRATION_SETPOINT_AIRTEMP=0"
+    "&aux1_filtration_speed=2700&aux2_filtration_speed=0&aux3_filtration_speed=0"
+    "&aux4_filtration_speed=0&setpoint_intelliflo_speed=3000&sequence_duration=30"
+)
+
+
+def test_intelliflo_body_matches_app_serialize():
+    api = _load_api()
+    state = api._parse_datas_flat(INTELLIFLO_GET_XML)
+    assert api.build_intelliflo_body(state) == INTELLIFLO_SERIALIZE
+
+
+def test_intelliflo_override_changes_only_target():
+    api = _load_api()
+    state = api._parse_datas_flat(INTELLIFLO_GET_XML)
+    body = api.build_intelliflo_body(
+        state, overrides={"setpoint_intelliflo_speed": "2400"}
+    )
+    assert body == INTELLIFLO_SERIALIZE.replace(
+        "setpoint_intelliflo_speed=3000", "setpoint_intelliflo_speed=2400"
+    )
+
+
 if __name__ == "__main__":
     test_control_body_matches_live()
     test_control_off_maps_correctly()
@@ -197,4 +235,6 @@ if __name__ == "__main__":
     test_setpoint_body_matches_app_serialize()
     test_setpoint_override_changes_only_target()
     test_schedule_override_changes_only_timer()
+    test_intelliflo_body_matches_app_serialize()
+    test_intelliflo_override_changes_only_target()
     print("All write-path tests passed (control + setpoint bodies match ground truth).")
