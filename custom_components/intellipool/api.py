@@ -18,6 +18,8 @@ from .const import (
     CLOUD_COMMANDS_SAVE,
     CLOUD_DATA_FIELD_SERIAL,
     CLOUD_DATA_PATH,
+    CLOUD_INTELLIFLO_GET,
+    CLOUD_INTELLIFLO_SAVE,
     CLOUD_LOGIN_FIELD_PASS,
     CLOUD_LOGIN_FIELD_USER,
     CLOUD_LOGIN_PATH,
@@ -25,6 +27,8 @@ from .const import (
     CLOUD_SETPOINTS_GET,
     CLOUD_SETPOINTS_SAVE,
     CONTROL_FIELD_MAP,
+    INTELLIFLO_FORM_SPEC,
+    INTELLIFLO_SPEED_MAP,
     RAW_CONTROL_MAP,
     SCHEDULE_FIELD_MAP,
     SETPOINT_FIELD_MAP,
@@ -128,6 +132,10 @@ class PoolData:
     # Live setpoints state from /pool/ajaxSetpoints/get (cloud only):
     # {"select": {...}, "checkbox": {...}, "timer": {...}}. Empty otherwise.
     setpoint_state: dict[str, dict[str, str]] = field(default_factory=dict)
+
+    # Live IntelliFlo speeds from /pool/ajaxIntelliFlo/get (cloud only), e.g.
+    # {"setpoint_intelliflo_speed": "3000", "speed_range_min": "700", ...}.
+    intelliflo_state: dict[str, str] = field(default_factory=dict)
 
     # Raw response for debugging
     raw: dict[str, Any] = field(default_factory=dict)
@@ -486,6 +494,25 @@ def build_setpoint_body(
     return "&".join(parts)
 
 
+def build_intelliflo_body(
+    state: dict[str, str], overrides: dict[str, str] | None = None
+) -> str:
+    """Reproduce the IntelliFlo form.serialize() from the /get state.
+
+    Byte-identical to the app's own submission (verified in tests); only the
+    overridden speed differs.
+    """
+    overrides = overrides or {}
+    parts: list[str] = []
+    for name, kind in INTELLIFLO_FORM_SPEC:
+        if kind.startswith("const:"):
+            value = overrides.get(name, kind.split(":", 1)[1])
+        else:  # from /get
+            value = overrides.get(name, state.get(name, "0"))
+        parts.append(f"{name}={value}")
+    return "&".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Local API
 # ---------------------------------------------------------------------------
@@ -744,6 +771,13 @@ class IntelliPoolCloudAPI:
                 data.setpoint_state = _parse_setpoint_state(sp_xml)
             except Exception as err:  # noqa: BLE001
                 _LOGGER.debug("Could not read setpoint state: %s", err)
+            try:
+                if_xml = await self._post_text(
+                    CLOUD_INTELLIFLO_GET, f"serial={self._pool_id}"
+                )
+                data.intelliflo_state = _parse_datas_flat(if_xml)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Could not read IntelliFlo state: %s", err)
             return data
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise CannotConnect(f"Cloud data fetch failed: {err}") from err
@@ -791,8 +825,28 @@ class IntelliPoolCloudAPI:
             await self._send_setpoint(serial, key, value)
         elif key in SCHEDULE_FIELD_MAP:
             await self._send_schedule(serial, key, str(value))
+        elif key in INTELLIFLO_SPEED_MAP:
+            await self._send_intelliflo(serial, key, value)
         else:
             raise CannotConnect(f"Unsupported command '{key}'")
+
+    async def _send_intelliflo(self, serial: str, key: str, value: Any) -> None:
+        field = INTELLIFLO_SPEED_MAP[key]
+        rpm = str(int(round(float(value) / 20.0) * 20))  # snap to 20-rpm steps
+        try:
+            state = _parse_datas_flat(
+                await self._post_text(CLOUD_INTELLIFLO_GET, f"serial={serial}")
+            )
+            body = "serial=" + serial + "&" + build_intelliflo_body(
+                state, overrides={field: rpm}
+            )
+            result = await self._post_text(CLOUD_INTELLIFLO_SAVE, body)
+            if "poolLogin/login" in result:
+                await self.login()
+                await self._post_text(CLOUD_INTELLIFLO_SAVE, body)
+            _LOGGER.info("Intellipool IntelliFlo %s=%s sent", field, rpm)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CannotConnect(f"IntelliFlo command failed: {err}") from err
 
     async def _send_schedule(self, serial: str, key: str, schedule: str) -> None:
         field = SCHEDULE_FIELD_MAP[key]

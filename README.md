@@ -37,6 +37,7 @@ Stöder:
 | `climate` | Poolvärmning | HVAC-entitet med temperaturmål |
 | `number` | pH-börvärde | 6.8–7.8 |
 | `number` | ORP-börvärde | 200–800 mV |
+| `number` | IntelliFlo-varvtal (setpoint/elektrolys/värme/aux1/chock) | rpm, 20-steg |
 | `text` | Filtrerings-/belysnings-/aux-schema | 24-tecken (en/timme, 0/1) |
 
 ---
@@ -187,7 +188,8 @@ Kartlagt (endpoints/fixtures finns) men inte inbyggt än, i ungefärlig priorite
 - [x] **Verifiera i skarp HA** — integrationen laddas i riktig HA (2026.2) och data flödar
   in i entiteterna; verifierat i [`tests/test_ha_integration.py`](tests/test_ha_integration.py)
 - [x] **Filtration/belysning som `select`** (Auto/På/Av/Timer/Chock) utöver på/av-switcharna
-- [ ] **IntelliFlo pumpvarvtal** — `/pool/ajaxIntelliFlo/get|save` (number/select för hastighet)
+- [x] **IntelliFlo pumpvarvtal** — `/pool/ajaxIntelliFlo/get|save` som `number`-entiteter
+  (setpoint/elektrolys/värme/aux1/chock), byte-validerad skrivning, 20-rpm-steg
 - [x] **Schemastyrning** — `timer_filtration` / `timer_lighting` / `timer_aux1` som `text`-entiteter (24-tecken/tim)
 - [ ] **Kvalitetspolish** — hassfest/HACS-CI grönt, robustare session-återinloggning,
   fler tester, quality scale

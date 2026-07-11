@@ -242,3 +242,36 @@ SCHEDULE_FIELD_MAP = {
     "schedule_lighting": "timer_lighting",
     "schedule_aux1": "timer_aux1",
 }
+
+# --- IntelliFlo variable-speed pump ---
+CLOUD_INTELLIFLO_GET = "/pool/ajaxIntelliFlo/get"    # POST serial= → XML <datas>
+CLOUD_INTELLIFLO_SAVE = "/pool/ajaxIntelliFlo/save"  # POST serial=&<form>
+
+# IntelliFlo save form, exact submit order. ("get" → value from /get;
+# "const:X" → form default not present in /get). Validated byte-for-byte against
+# the app's own form.serialize() in tests.
+INTELLIFLO_FORM_SPEC = [
+    ("speed_range_min", "get"),
+    ("speed_range_max", "get"),
+    ("electrolysis_filtration_speed", "get"),
+    ("heating_filtration_speed", "get"),
+    ("mode_choc_speed", "get"),
+    ("FILTRATION_SETPOINT_AIRTEMP", "const:0"),
+    ("aux1_filtration_speed", "get"),
+    ("aux2_filtration_speed", "get"),
+    ("aux3_filtration_speed", "get"),
+    ("aux4_filtration_speed", "get"),
+    ("setpoint_intelliflo_speed", "get"),
+    ("sequence_duration", "const:30"),
+]
+
+# HA number key → device IntelliFlo speed field (RPM). Speeds snap to 20-rpm
+# steps and are bounded by speed_range_min/max.
+INTELLIFLO_SPEED_MAP = {
+    "speed_setpoint": "setpoint_intelliflo_speed",
+    "speed_electrolysis": "electrolysis_filtration_speed",
+    "speed_heating": "heating_filtration_speed",
+    "speed_aux1": "aux1_filtration_speed",
+    "speed_choc": "mode_choc_speed",
+}
+INTELLIFLO_SPEED_STEP = 20
