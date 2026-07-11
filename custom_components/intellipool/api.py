@@ -26,6 +26,7 @@ from .const import (
     CLOUD_SETPOINTS_SAVE,
     CONTROL_FIELD_MAP,
     RAW_CONTROL_MAP,
+    SCHEDULE_FIELD_MAP,
     SETPOINT_FIELD_MAP,
     SETPOINT_FORM_SPEC,
     CONN_TYPE_CLOUD,
@@ -123,6 +124,10 @@ class PoolData:
     # Live control modes from /pool/ajaxCommands/get (cloud only), e.g.
     # {"filtration": "1", "lighting": "2", ...}. Empty when unavailable.
     command_state: dict[str, str] = field(default_factory=dict)
+
+    # Live setpoints state from /pool/ajaxSetpoints/get (cloud only):
+    # {"select": {...}, "checkbox": {...}, "timer": {...}}. Empty otherwise.
+    setpoint_state: dict[str, dict[str, str]] = field(default_factory=dict)
 
     # Raw response for debugging
     raw: dict[str, Any] = field(default_factory=dict)
@@ -732,6 +737,13 @@ class IntelliPoolCloudAPI:
                 data.command_state = _parse_datas_flat(cmd_xml)
             except Exception as err:  # noqa: BLE001
                 _LOGGER.debug("Could not read command state: %s", err)
+            try:
+                sp_xml = await self._get_text(
+                    CLOUD_SETPOINTS_GET, {"serial": self._pool_id}
+                )
+                data.setpoint_state = _parse_setpoint_state(sp_xml)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Could not read setpoint state: %s", err)
             return data
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise CannotConnect(f"Cloud data fetch failed: {err}") from err
@@ -777,8 +789,31 @@ class IntelliPoolCloudAPI:
             await self._send_control(serial, key, value)
         elif key in SETPOINT_FIELD_MAP:
             await self._send_setpoint(serial, key, value)
+        elif key in SCHEDULE_FIELD_MAP:
+            await self._send_schedule(serial, key, str(value))
         else:
             raise CannotConnect(f"Unsupported command '{key}'")
+
+    async def _send_schedule(self, serial: str, key: str, schedule: str) -> None:
+        field = SCHEDULE_FIELD_MAP[key]
+        if not re.fullmatch(r"[01]{24}", schedule):
+            raise CannotConnect(
+                f"Schedule must be 24 chars of 0/1, got {schedule!r}"
+            )
+        try:
+            state = _parse_setpoint_state(
+                await self._get_text(CLOUD_SETPOINTS_GET, {"serial": serial})
+            )
+            body = "serial=" + serial + "&" + build_setpoint_body(
+                state, overrides={field: schedule}
+            )
+            result = await self._post_text(CLOUD_SETPOINTS_SAVE, body)
+            if "poolLogin/login" in result:
+                await self.login()
+                await self._post_text(CLOUD_SETPOINTS_SAVE, body)
+            _LOGGER.info("Intellipool schedule %s set", field)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CannotConnect(f"Schedule command failed: {err}") from err
 
     async def _send_control_raw(self, serial: str, key: str, raw_value: str) -> None:
         field, _labels = RAW_CONTROL_MAP[key]

@@ -235,3 +235,10 @@ RAW_CONTROL_MAP = {
     "filtration_mode": ("filtration", FILTRATION_MODES),
     "lighting_mode": ("lighting", LIGHTING_MODES),
 }
+
+# Schedule (24-char, one char per hour, 0/1) text entities → setpoints timer field
+SCHEDULE_FIELD_MAP = {
+    "schedule_filtration": "timer_filtration",
+    "schedule_lighting": "timer_lighting",
+    "schedule_aux1": "timer_aux1",
+}

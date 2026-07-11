@@ -108,6 +108,14 @@ async def test_data_flows_into_ha_entities(
     assert filt_select is not None
     assert filt_select.domain == "select"
 
+    # Schedule text entities are created.
+    sched = next(
+        (e for e in ours if e.unique_id == f"{entry.entry_id}_schedule_filtration"),
+        None,
+    )
+    assert sched is not None
+    assert sched.domain == "text"
+
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED

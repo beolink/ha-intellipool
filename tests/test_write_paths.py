@@ -180,10 +180,21 @@ def test_setpoint_override_changes_only_target():
     )
 
 
+def test_schedule_override_changes_only_timer():
+    api = _load_api()
+    state = api._parse_setpoint_state(SETPOINTS_GET_XML)
+    new = "111111000000000000111111"
+    body = api.build_setpoint_body(state, overrides={"timer_filtration": new})
+    assert body == SETPOINTS_SERIALIZE.replace(
+        "timer_filtration=111111111111111111111111", f"timer_filtration={new}"
+    )
+
+
 if __name__ == "__main__":
     test_control_body_matches_live()
     test_control_off_maps_correctly()
     test_raw_mode_body()
     test_setpoint_body_matches_app_serialize()
     test_setpoint_override_changes_only_target()
+    test_schedule_override_changes_only_timer()
     print("All write-path tests passed (control + setpoint bodies match ground truth).")
