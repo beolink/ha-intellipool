@@ -12,6 +12,8 @@ from .const import (
     CLOUD_BASE_URL,
     CLOUD_COMMAND_PATH,
     CLOUD_DATA_PATH,
+    CLOUD_LOGIN_FIELD_PASS,
+    CLOUD_LOGIN_FIELD_USER,
     CLOUD_LOGIN_PATH,
     CLOUD_POOL_LIST_PATH,
     CONN_TYPE_CLOUD,
@@ -434,12 +436,19 @@ class IntelliPoolCloudAPI:
             await self._session.close()
 
     async def login(self) -> None:
-        """Authenticate with intellipool.eu and obtain a session."""
+        """Authenticate with intellipool.eu and obtain a session cookie.
+
+        Confirmed flow: POST form-urlencoded ``login`` + ``pass`` to
+        ``/pool/poolLogin/login`` (plaintext over TLS, no client-side hashing).
+        On failure the server re-renders the login page; on success it
+        redirects into the authenticated app. We detect the login-wall to
+        distinguish the two.
+        """
         session = await self._get_session()
         url = f"{CLOUD_BASE_URL}{CLOUD_LOGIN_PATH}"
         payload = {
-            "login": self._username,
-            "password": self._password,
+            CLOUD_LOGIN_FIELD_USER: self._username,
+            CLOUD_LOGIN_FIELD_PASS: self._password,
         }
         try:
             async with session.post(
@@ -447,13 +456,14 @@ class IntelliPoolCloudAPI:
                 data=payload,
                 allow_redirects=True,
             ) as resp:
-                if resp.status == 401:
-                    raise InvalidAuth("Invalid intellipool.eu credentials")
                 if resp.status not in (200, 302):
-                    raise CannotConnect(
-                        f"Login failed with HTTP {resp.status}"
-                    )
-                # Try the pool-list path to validate session and discover pool_id
+                    raise CannotConnect(f"Login failed with HTTP {resp.status}")
+                body = await resp.text(errors="replace")
+                # If we still see the login form, the credentials were rejected.
+                if "poolLogin/login" in body and 'name="pass"' in body:
+                    raise InvalidAuth("intellipool.eu rejected the credentials")
+                _LOGGER.debug("Cloud login OK, landed on %s", resp.url)
+                # Try to discover pool_id from the authenticated landing page
                 if self._pool_id is None:
                     await self._discover_pool_id(session)
         except aiohttp.ClientError as err:
