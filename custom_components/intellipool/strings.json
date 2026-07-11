@@ -3,7 +3,7 @@
     "step": {
       "connection_type": {
         "title": "Intellipool – anslutningstyp",
-        "description": "Välj hur integrationen ska ansluta till din Intellipool-styranläggning.",
+        "description": "Välj hur integrationen ska ansluta.\n\n• Moln (intellipool.eu) – flest värden, rekommenderat för INTP-1010B\n• Officiellt API (domotique-piscine.eu) – färre värden men stabilt\n• Lokalt – endast för enheter med öppen webbserver (ej INTP-1010B)",
         "data": {
           "connection_type": "Anslutningstyp"
         }
@@ -28,11 +28,21 @@
       },
       "cloud": {
         "title": "Molnanslutning (intellipool.eu)",
-        "description": "Använd dina inloggningsuppgifter för intellipool.eu.",
+        "description": "Använd dina inloggningsuppgifter för intellipool.eu. Fälten för officiellt API är valfria och aktiverar failsafe – om skrapningen slutar uppdatera hämtas data från det officiella API:et istället.",
         "data": {
           "username": "E-postadress",
           "password": "Lösenord",
-          "pool_id": "Pool-serienummer (lämna tomt för auto-identifiering)"
+          "pool_id": "Pool-serienummer (lämna tomt för auto-identifiering)",
+          "install_id": "Failsafe: Installations-ID (valfritt)",
+          "api_key": "Failsafe: API-nyckel (valfritt)"
+        }
+      },
+      "official": {
+        "title": "Officiellt API (domotique-piscine.eu)",
+        "description": "Ange installations-ID och API-nyckel. Dessa hittar du i din REST-URL: /api/install/<installations-ID>/probe/...?key=<API-nyckel>.",
+        "data": {
+          "install_id": "Installations-ID",
+          "api_key": "API-nyckel"
         }
       }
     },
@@ -41,6 +51,7 @@
       "invalid_auth": "Felaktiga inloggningsuppgifter.",
       "endpoint_not_found": "Inget lokalt API hittades. Se README för protokoll-discovery.",
       "no_serial": "Inloggning OK men poolens serienummer kunde inte hittas automatiskt. Ange det manuellt (siffran i displaySummary('...') på intellipool.eu).",
+      "bad_failsafe": "Failsafe: API-nyckeln eller installations-ID:t är fel. Lämna båda tomma om du inte vill ha failsafe.",
       "unknown": "Oväntat fel. Kontrollera loggarna."
     },
     "abort": {
@@ -52,7 +63,8 @@
       "init": {
         "title": "Intellipool-inställningar",
         "data": {
-          "scan_interval": "Uppdateringsintervall (sekunder)"
+          "scan_interval": "Uppdateringsintervall (sekunder)",
+          "stale_minutes": "Failsafe: växla till officiellt API efter (minuter utan uppdatering)"
         }
       }
     }

@@ -23,6 +23,7 @@ Stöder:
 | `sensor` | Sensorbatteri (diagnostik) | V |
 | `sensor` | Radiosignal (diagnostik) | dB |
 | `sensor` | Statusmeddelande (diagnostik) | text |
+| `sensor` | Datakälla (diagnostik) | primary/fallback |
 | `switch` | Pump | På/av |
 | `switch` | Filtrering | På/av |
 | `switch` | Uppvärmning | På/av |
@@ -75,14 +76,53 @@ enheter med öppen webbserver) och för avancerad proxy-uppsättning (se längst
 
 **➡️ För INTP-1010B: använd molnanslutning.**
 
+### Tre anslutningssätt
+
+| Typ | Källa | Värden | Not |
+|---|---|---|---|
+| **Moln** *(rek.)* | intellipool.eu (skrapning) | Flest (alla sensorer + börvärden) | Login + serienummer |
+| **Officiellt API** | api.domotique-piscine.eu | Färre (temp, pH, ORP, salt, flaggor) | Nyckelbaserat, stabilt |
+| **Lokalt** | Enhetens IP | — | Ej INTP-1010B (ingen lokal server) |
+
 ### Molnanslutning (rekommenderat för INTP-1010B)
 
 1. Välj **Molnanslutning** i config-flödet
 2. Ange din e-postadress och lösenord för intellipool.eu
-3. Pool-ID identifieras automatiskt (eller ange manuellt)
+3. Pool-serienummer identifieras automatiskt (eller ange manuellt)
+4. *(Valfritt)* Ange **installations-ID + API-nyckel** för att aktivera failsafe (se nedan)
 
 > **Status:** Login **och sensordata fungerar** (verifierat mot riktig INTP-1010B).
 > Kvar att fånga är endast **styr-kommandona** (pump/värme/ljus) — se nedan.
+
+### Officiellt API (domotique-piscine.eu)
+
+Ett rent, nyckelbaserat REST-API (tjänsten bakom intellipool.eu). Färre värden än
+skrapningen men mycket stabilt. Ditt REST-URL avslöjar båda uppgifterna:
+
+```
+https://api.domotique-piscine.eu/api/install/<INSTALL-ID>/probe/water-temp?key=<API-NYCKEL>
+```
+
+- Välj **Officiellt API** i config-flödet och ange installations-ID + API-nyckel
+- Integrationen använder bulk-endpointen `/api/install/<id>/probes?key=<nyckel>`
+  (ett anrop → alla värden)
+
+Stödda värden: vattentemperatur, lufttemperatur, pH, ORP, konduktivitet (salt),
+samt flaggor för filtrering, uppvärmning, belysning och AUX.
+
+### Failsafe (moln + officiellt API)
+
+Du kan köra molnskrapningen som primär källa **med det officiella API:et som reserv**.
+Ange install-ID + API-nyckel i molnsteget. Då gäller:
+
+- Normalt används molnskrapningen (flest värden)
+- Om skrapningen **slutar svara** eller dess tidsstämpel **slutar uppdateras** i
+  mer än X minuter (standard 30, ställbart i inställningarna), växlar integrationen
+  automatiskt till det officiella API:et
+- Värden som bara skrapningen har (pumphastighet, effekt, börvärden, batteri) behålls
+  från senaste lyckade hämtning så entiteterna inte blir otillgängliga
+- Diagnostiksensorn **Datakälla** visar `primary` eller `fallback` så du ser när
+  reserven är aktiv
 
 ### Vad som är bekräftat och inbyggt
 

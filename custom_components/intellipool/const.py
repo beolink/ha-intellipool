@@ -8,6 +8,7 @@ MODEL = "Intellipool INTP-1010B"
 # Connection types
 CONN_TYPE_LOCAL = "local"
 CONN_TYPE_CLOUD = "cloud"
+CONN_TYPE_OFFICIAL = "official"
 
 # Config entry keys
 CONF_CONNECTION_TYPE = "connection_type"
@@ -18,11 +19,15 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_POOL_ID = "pool_id"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_API_KEY = "api_key"          # official domotique-piscine.eu API key
+CONF_INSTALL_ID = "install_id"    # official API installation id
+CONF_STALE_MINUTES = "stale_minutes"  # failsafe threshold
 
 # Defaults
 DEFAULT_PORT = 80
 DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_SSL = False
+DEFAULT_STALE_MINUTES = 30
 
 # Cloud service (intellipool.eu)
 # NOTE: intellipool.eu is an older server-rendered jQuery/w2ui web app.
@@ -46,6 +51,39 @@ CLOUD_DATA_FIELD_SERIAL = "serial"
 # --- Command endpoint: still to be captured (controls come later) ---
 CLOUD_COMMAND_PATH = "/pool/poolCommand"     # PLACEHOLDER — capture real path
 CLOUD_POOL_LIST_PATH = "/pool/poolListDisplay"  # authenticated landing/list page
+
+# ---------------------------------------------------------------------------
+# Official API (api.domotique-piscine.eu) — the backend behind intellipool.eu.
+# Clean, key-based REST. Fewer values than the scrape, but reliable → we use it
+# as a FAILSAFE fallback (and it can also be used standalone).
+#   GET /api/install/<install_id>/probes?key=<api_key>  → JSON {"values":[...]}
+# Each value: {"typeInfo": <KEY>, "value": <str>, "unit": <str optional>}
+# ---------------------------------------------------------------------------
+OFFICIAL_BASE_URL = "https://api.domotique-piscine.eu"
+OFFICIAL_PROBES_PATH = "/api/install/{install_id}/probes"
+OFFICIAL_KEY_PARAM = "key"
+
+# typeInfo → (PoolData field, kind) ; kind: "float" | "bool" | "text"
+OFFICIAL_FIELD_MAP = {
+    "WATER_TEMP": ("water_temperature", "float"),
+    "AIR_TEMP": ("air_temperature", "float"),
+    "PH": ("ph", "float"),
+    "ORP": ("orp", "float"),
+    "CONDUCTIVITY": ("salinity", "float"),
+    "OMEOTECH_FLAG_FILTRATION": ("filtration", "bool"),
+    "OMEOTECH_FLAG_HEATING": ("heating", "bool"),
+    "OMEOTECH_FLAG_LIGHTING": ("light", "bool"),
+    "OMEOTECH_FLAG_AUX1": ("aux_1", "bool"),
+    "OMEOTECH_FLAG_AUX2": ("aux_2", "bool"),
+    "OMEOTECH_FLAG_AUX3": ("aux_3", "bool"),
+    "OMEOTECH_FLAG_CHLORINATION": ("chlorinator", "bool"),
+    "DATETIME": ("updated", "text"),
+}
+
+# Data source labels (exposed as a diagnostic sensor)
+SOURCE_PRIMARY = "primary"
+SOURCE_FALLBACK = "fallback"
+KEY_DATA_SOURCE = "data_source"
 
 # Local device – try these paths in order until one responds
 LOCAL_PROBE_PATHS = [

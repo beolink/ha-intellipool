@@ -3,7 +3,7 @@
     "step": {
       "connection_type": {
         "title": "Intellipool – connection type",
-        "description": "Choose how to connect to your Intellipool controller.",
+        "description": "Choose how to connect.\n\n• Cloud (intellipool.eu) – most values, recommended for INTP-1010B\n• Official API (domotique-piscine.eu) – fewer values but reliable\n• Local – only for devices with an open web server (not INTP-1010B)",
         "data": {
           "connection_type": "Connection type"
         }
@@ -28,11 +28,21 @@
       },
       "cloud": {
         "title": "Cloud connection (intellipool.eu)",
-        "description": "Use your intellipool.eu login credentials.",
+        "description": "Use your intellipool.eu login credentials. The official-API fields are optional and enable a failsafe – if the scrape stops updating, data is fetched from the official API instead.",
         "data": {
           "username": "Email address",
           "password": "Password",
-          "pool_id": "Pool serial (leave blank for auto-detection)"
+          "pool_id": "Pool serial (leave blank for auto-detection)",
+          "install_id": "Failsafe: Installation ID (optional)",
+          "api_key": "Failsafe: API key (optional)"
+        }
+      },
+      "official": {
+        "title": "Official API (domotique-piscine.eu)",
+        "description": "Enter the installation ID and API key. Find them in your REST URL: /api/install/<installation-ID>/probe/...?key=<API-key>.",
+        "data": {
+          "install_id": "Installation ID",
+          "api_key": "API key"
         }
       }
     },
@@ -41,6 +51,7 @@
       "invalid_auth": "Invalid credentials.",
       "endpoint_not_found": "No local API found on the device. See README for protocol discovery instructions.",
       "no_serial": "Login OK but the pool serial could not be auto-detected. Enter it manually (the number in displaySummary('...') on intellipool.eu).",
+      "bad_failsafe": "Failsafe: the API key or installation ID is wrong. Leave both blank if you don't want a failsafe.",
       "unknown": "Unexpected error. Check logs for details."
     },
     "abort": {
@@ -52,7 +63,8 @@
       "init": {
         "title": "Intellipool options",
         "data": {
-          "scan_interval": "Update interval (seconds)"
+          "scan_interval": "Update interval (seconds)",
+          "stale_minutes": "Failsafe: switch to official API after (minutes without update)"
         }
       }
     }

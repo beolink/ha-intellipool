@@ -13,16 +13,28 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import CannotConnect, EndpointNotFound, InvalidAuth, IntelliPoolCloudAPI, IntelliPoolLocalAPI
+from .api import (
+    CannotConnect,
+    EndpointNotFound,
+    InvalidAuth,
+    IntelliPoolCloudAPI,
+    IntelliPoolLocalAPI,
+    IntelliPoolOfficialAPI,
+)
 from .const import (
+    CONF_API_KEY,
     CONF_CONNECTION_TYPE,
+    CONF_INSTALL_ID,
     CONF_POOL_ID,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
+    CONF_STALE_MINUTES,
     CONN_TYPE_CLOUD,
     CONN_TYPE_LOCAL,
+    CONN_TYPE_OFFICIAL,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_STALE_MINUTES,
     DOMAIN,
 )
 from .discovery import DiscoveredDevice, discover_devices
@@ -33,8 +45,8 @@ CONF_DISCOVERED_HOST = "discovered_host"
 
 STEP_TYPE_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_CONNECTION_TYPE, default=CONN_TYPE_LOCAL): vol.In(
-            [CONN_TYPE_LOCAL, CONN_TYPE_CLOUD]
+        vol.Required(CONF_CONNECTION_TYPE, default=CONN_TYPE_CLOUD): vol.In(
+            [CONN_TYPE_CLOUD, CONN_TYPE_OFFICIAL, CONN_TYPE_LOCAL]
         ),
     }
 )
@@ -49,11 +61,21 @@ STEP_LOCAL_SCHEMA = vol.Schema(
     }
 )
 
+# Cloud step: credentials + OPTIONAL official-API failsafe (key + install id).
 STEP_CLOUD_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_POOL_ID, default=""): str,
+        vol.Optional(CONF_INSTALL_ID, default=""): str,
+        vol.Optional(CONF_API_KEY, default=""): str,
+    }
+)
+
+STEP_OFFICIAL_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_INSTALL_ID): str,
+        vol.Required(CONF_API_KEY): str,
     }
 )
 
@@ -109,11 +131,51 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_CONNECTION_TYPE] = self._conn_type
             if self._conn_type == CONN_TYPE_LOCAL:
                 return await self.async_step_scan()
+            if self._conn_type == CONN_TYPE_OFFICIAL:
+                return await self.async_step_official()
             return await self.async_step_cloud()
 
         return self.async_show_form(
             step_id="connection_type",
             data_schema=STEP_TYPE_SCHEMA,
+        )
+
+    # ------------------------------------------------------------------
+    # Step: official API (domotique-piscine.eu)
+    # ------------------------------------------------------------------
+
+    async def async_step_official(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            session = async_get_clientsession(self.hass)
+            api = IntelliPoolOfficialAPI(
+                install_id=user_input[CONF_INSTALL_ID],
+                api_key=user_input[CONF_API_KEY],
+                session=session,
+            )
+            try:
+                await api.get_data()
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected official API error")
+                errors["base"] = "unknown"
+            else:
+                self._data.update(user_input)
+                return self.async_create_entry(
+                    title=f"Intellipool (API {user_input[CONF_INSTALL_ID]})",
+                    data=self._data,
+                )
+
+        return self.async_show_form(
+            step_id="official",
+            data_schema=STEP_OFFICIAL_SCHEMA,
+            errors=errors,
         )
 
     # ------------------------------------------------------------------
@@ -289,10 +351,19 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 serial = api.pool_id or (user_input.get(CONF_POOL_ID) or None)
-                if not serial:
+                # Validate the optional failsafe key, if both parts were given.
+                fs_key = user_input.get(CONF_API_KEY) or ""
+                fs_install = user_input.get(CONF_INSTALL_ID) or ""
+                if fs_key and fs_install:
+                    fs = IntelliPoolOfficialAPI(
+                        install_id=fs_install, api_key=fs_key, session=session
+                    )
+                    if not await fs.test_connection():
+                        errors["base"] = "bad_failsafe"
+                if not serial and "base" not in errors:
                     # Login worked but we could not auto-detect the pool serial.
                     errors["base"] = "no_serial"
-                else:
+                if not errors:
                     user_input[CONF_POOL_ID] = serial
                     self._data.update(user_input)
                     return self.async_create_entry(
@@ -381,10 +452,16 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
         current_interval = self.config_entry.options.get(
             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
         )
+        current_stale = self.config_entry.options.get(
+            CONF_STALE_MINUTES, DEFAULT_STALE_MINUTES
+        )
         schema = vol.Schema(
             {
                 vol.Optional(CONF_SCAN_INTERVAL, default=current_interval): vol.All(
                     int, vol.Range(min=10, max=300)
+                ),
+                vol.Optional(CONF_STALE_MINUTES, default=current_stale): vol.All(
+                    int, vol.Range(min=5, max=240)
                 ),
             }
         )

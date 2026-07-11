@@ -21,12 +21,14 @@ from .const import (
     CLOUD_POOL_LIST_PATH,
     CONN_TYPE_CLOUD,
     CONN_TYPE_LOCAL,
+    CONN_TYPE_OFFICIAL,
     KEY_AIR_TEMP,
     KEY_AUX_1,
     KEY_AUX_2,
     KEY_AUX_3,
     KEY_BATTERY_VOLTAGE,
     KEY_CHLORINATOR,
+    KEY_DATA_SOURCE,
     KEY_FILTRATION,
     KEY_HEATING,
     KEY_INFO_MESSAGE,
@@ -47,6 +49,10 @@ from .const import (
     KEY_WATER_TEMP,
     LOCAL_COMMAND_PATHS,
     LOCAL_PROBE_PATHS,
+    OFFICIAL_BASE_URL,
+    OFFICIAL_FIELD_MAP,
+    OFFICIAL_KEY_PARAM,
+    OFFICIAL_PROBES_PATH,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,6 +104,7 @@ class PoolData:
     cover: bool | None = None
     info_message: str | None = None
     updated: str | None = None
+    source: str | None = None  # "primary" | "fallback"
 
     # Setpoints
     target_temperature: float | None = None
@@ -133,6 +140,7 @@ class PoolData:
             KEY_TARGET_TEMP: self.target_temperature,
             KEY_TARGET_PH: self.target_ph,
             KEY_TARGET_ORP: self.target_orp,
+            KEY_DATA_SOURCE: self.source,
         }
 
 
@@ -321,6 +329,57 @@ def _map_cloud_response(raw_html: str) -> PoolData:
     data.updated = _clean_text(dm.group(1)) if dm else None
 
     return data
+
+
+def _map_official_response(payload: dict) -> PoolData:
+    """
+    Map the official domotique-piscine.eu /probes JSON to PoolData.
+
+    Payload shape: {"values": [{"typeInfo": KEY, "value": "..", "unit": ".."}, ...]}
+    Verified against real INTP-1010B output (see tests/test_official_parser.py).
+    """
+    data = PoolData(raw=payload)
+    for item in payload.get("values", []):
+        type_info = item.get("typeInfo")
+        mapping = OFFICIAL_FIELD_MAP.get(type_info)
+        if not mapping:
+            continue
+        field, kind = mapping
+        raw_val = item.get("value")
+        if kind == "float":
+            setattr(data, field, _text_num(raw_val))
+        elif kind == "bool":
+            setattr(data, field, _parse_bool(raw_val))
+        else:
+            setattr(data, field, str(raw_val).strip() if raw_val is not None else None)
+    # The filtration pump follows the filtration flag.
+    if data.filtration is not None:
+        data.pump = data.filtration
+    return data
+
+
+# Fields that carry a live measurement/state (used by merge_pool_data).
+_MERGE_FIELDS = (
+    "water_temperature", "air_temperature", "ph", "orp", "salinity",
+    "pump_speed", "pump_flow", "pump_power", "pump", "heating", "light",
+    "chlorinator", "ph_dosing", "orp_dosing", "filtration",
+    "aux_1", "aux_2", "aux_3", "battery_voltage", "signal_strength",
+    "cover", "info_message", "target_temperature", "target_ph", "target_orp",
+)
+
+
+def merge_pool_data(base: PoolData, extra: PoolData | None) -> PoolData:
+    """Return `base` with any None field filled in from `extra`.
+
+    Used by the failsafe: when the official API (fewer fields) is the base,
+    the richer scrape can supply pump RPM/power, setpoints, battery, etc.
+    """
+    if extra is None:
+        return base
+    for f in _MERGE_FIELDS:
+        if getattr(base, f) is None and getattr(extra, f) is not None:
+            setattr(base, f, getattr(extra, f))
+    return base
 
 
 # ---------------------------------------------------------------------------
@@ -607,6 +666,72 @@ class IntelliPoolCloudAPI:
 
 
 # ---------------------------------------------------------------------------
+# Official API (api.domotique-piscine.eu)
+# ---------------------------------------------------------------------------
+
+class IntelliPoolOfficialAPI:
+    """Client for the official key-based REST API (domotique-piscine.eu)."""
+
+    def __init__(
+        self,
+        install_id: str,
+        api_key: str,
+        session: aiohttp.ClientSession | None = None,
+    ) -> None:
+        self._install_id = str(install_id)
+        self._api_key = api_key
+        self._session = session
+        self._owns_session = session is None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=TIMEOUT,
+                headers={"Accept": "application/json"},
+            )
+        return self._session
+
+    async def close(self) -> None:
+        if self._owns_session and self._session and not self._session.closed:
+            await self._session.close()
+
+    @property
+    def _url(self) -> str:
+        path = OFFICIAL_PROBES_PATH.format(install_id=self._install_id)
+        return f"{OFFICIAL_BASE_URL}{path}"
+
+    async def get_data(self) -> PoolData:
+        """Fetch all probe values from the official /probes endpoint."""
+        session = await self._get_session()
+        params = {OFFICIAL_KEY_PARAM: self._api_key}
+        try:
+            async with session.get(self._url, params=params) as resp:
+                if resp.status in (400, 401, 403):
+                    raise InvalidAuth(
+                        "Official API rejected the key (HTTP "
+                        f"{resp.status})"
+                    )
+                resp.raise_for_status()
+                payload = await resp.json(content_type=None)
+            _LOGGER.debug("Intellipool official raw data: %s", payload)
+            if isinstance(payload, dict) and payload.get("status") == "error":
+                raise InvalidAuth(
+                    payload.get("message", "Official API error")
+                )
+            return _map_official_response(payload)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CannotConnect(f"Official API fetch failed: {err}") from err
+
+    async def test_connection(self) -> bool:
+        """Return True if the key + install id are valid."""
+        try:
+            await self.get_data()
+            return True
+        except (CannotConnect, InvalidAuth):
+            return False
+
+
+# ---------------------------------------------------------------------------
 # Unified wrapper
 # ---------------------------------------------------------------------------
 
@@ -622,17 +747,25 @@ class IntelliPoolAPI:
         username: str | None = None,
         password: str | None = None,
         pool_id: str | None = None,
+        install_id: str | None = None,
+        api_key: str | None = None,
     ) -> None:
         self._type = connection_type
+        self._backend: (
+            IntelliPoolLocalAPI | IntelliPoolCloudAPI | IntelliPoolOfficialAPI
+        )
         if connection_type == CONN_TYPE_LOCAL:
-            self._backend: IntelliPoolLocalAPI | IntelliPoolCloudAPI = (
-                IntelliPoolLocalAPI(
-                    host=host or "",
-                    port=port,
-                    ssl=ssl,
-                    username=username,
-                    password=password,
-                )
+            self._backend = IntelliPoolLocalAPI(
+                host=host or "",
+                port=port,
+                ssl=ssl,
+                username=username,
+                password=password,
+            )
+        elif connection_type == CONN_TYPE_OFFICIAL:
+            self._backend = IntelliPoolOfficialAPI(
+                install_id=install_id or "",
+                api_key=api_key or "",
             )
         else:
             self._backend = IntelliPoolCloudAPI(
@@ -645,14 +778,20 @@ class IntelliPoolAPI:
         """Perform initial authentication / discovery."""
         if self._type == CONN_TYPE_CLOUD:
             await self._backend.login()  # type: ignore[union-attr]
-        else:
+        elif self._type == CONN_TYPE_LOCAL:
             await self._backend.discover()  # type: ignore[union-attr]
+        else:  # official — validate the key by doing a fetch
+            await self._backend.get_data()
 
     async def get_data(self) -> PoolData:
         return await self._backend.get_data()
 
     async def send_command(self, key: str, value: Any) -> None:
-        await self._backend.send_command(key, value)
+        if not hasattr(self._backend, "send_command"):
+            raise CannotConnect(
+                "This connection type does not support control commands"
+            )
+        await self._backend.send_command(key, value)  # type: ignore[union-attr]
 
     async def close(self) -> None:
         await self._backend.close()
