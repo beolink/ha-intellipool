@@ -8,9 +8,16 @@
           "connection_type": "Anslutningstyp"
         }
       },
+      "scan": {
+        "title": "Nätverkssökning",
+        "description": "Hittade {count} möjlig(a) enhet(er) på nätverket. Välj din Intellipool eller ange IP manuellt.",
+        "data": {
+          "discovered_host": "Enhet"
+        }
+      },
       "local": {
         "title": "Lokal anslutning",
-        "description": "Ange IP-adressen till din Intellipool INTP-1010B. Integrationen probar automatiskt vanliga API-endpoints.",
+        "description": "Ange IP-adressen till din Intellipool INTP-1010B. Integrationen probar API-endpoints automatiskt.",
         "data": {
           "host": "IP-adress",
           "port": "Port (standard: 80)",
@@ -20,7 +27,7 @@
         }
       },
       "cloud": {
-        "title": "Moln-anslutning (intellipool.eu)",
+        "title": "Molnanslutning (intellipool.eu)",
         "description": "Använd dina inloggningsuppgifter för intellipool.eu.",
         "data": {
           "username": "E-postadress",
@@ -30,10 +37,10 @@
       }
     },
     "error": {
-      "cannot_connect": "Kunde inte ansluta till enheten. Kontrollera IP-adress och nätverksanslutning.",
+      "cannot_connect": "Kunde inte ansluta. Kontrollera IP-adress och nätverk.",
       "invalid_auth": "Felaktiga inloggningsuppgifter.",
-      "endpoint_not_found": "Inget lokalt API hittades på enheten. Se README för instruktioner om protokoll-discovery.",
-      "unknown": "Oväntat fel. Se loggar för detaljer."
+      "endpoint_not_found": "Inget lokalt API hittades. Se README för protokoll-discovery.",
+      "unknown": "Oväntat fel. Kontrollera loggarna."
     },
     "abort": {
       "already_configured": "Intellipool är redan konfigurerad."
