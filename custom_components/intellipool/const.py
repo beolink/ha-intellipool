@@ -48,9 +48,64 @@ CLOUD_LOGIN_FIELD_PASS = "pass"              # password field (plaintext over TL
 CLOUD_DATA_PATH = "/pool/poolSummary"
 CLOUD_DATA_FIELD_SERIAL = "serial"
 
-# --- Command endpoint: still to be captured (controls come later) ---
-CLOUD_COMMAND_PATH = "/pool/poolCommand"     # PLACEHOLDER — capture real path
-CLOUD_POOL_LIST_PATH = "/pool/poolListDisplay"  # authenticated landing/list page
+# --- Control + setpoint endpoints: CONFIRMED via authenticated DevTools session ---
+# (control write live-verified against a real INTP-1010B on 2026-07-11)
+CLOUD_POOL_LIST_PATH = "/pool/poolList/group"    # authenticated landing/list page
+CLOUD_COMMANDS_GET = "/pool/ajaxCommands/get"    # GET  serial= → XML <datas>
+CLOUD_COMMANDS_SAVE = "/pool/ajaxCommands/save"  # POST serial=&<fields> (actuates)
+CLOUD_SETPOINTS_GET = "/pool/ajaxSetpoints/get"  # GET  serial= → XML <datas>
+CLOUD_SETPOINTS_SAVE = "/pool/ajaxSetpoints/save"  # POST serial=&<form> (actuates)
+CLOUD_ORDER_PATH = "/pool/ajaxOmeoGetCurrentsOrder"  # GET serial= → <order .../>
+CLOUD_COMMAND_PATH = CLOUD_COMMANDS_SAVE         # back-compat alias
+
+# The exact field set the commands save form submits (order matters for parity).
+# aux1 is sent as aux1_3p when type_aux1 != 0, else aux1_2p (handled in code).
+# (CONTROL_FIELD_MAP / SETPOINT_FIELD_MAP are defined below, after the KEY_* names.)
+CLOUD_COMMAND_SAVE_FIELDS = [
+    "filtration", "lighting", "type_aux1", "heating_regulation",
+    "ph_regulation", "orp_regulation",
+]
+
+# The setpoints save form, in exact submit order. Each entry: (name, kind).
+# kind: "select"/"timer" → value from ajaxSetpoints/get; "checkbox" → included
+# only when the /get value is true (submitted as "on"); "const" → fixed default
+# that the form supplies but /get does not. Validated byte-for-byte against the
+# app's own jQuery form.serialize() output (see tests/test_setpoints_writer.py).
+SETPOINT_FORM_SPEC = [
+    ("pool_volume", "select"),
+    ("setpoint_heating", "select"),
+    ("FILTRATION_STOP_DELAY", "const:0"),
+    ("OMEOTECH_HEAT_ONLY_FILTRATION_SCHEDULE", "checkbox"),
+    ("heating_priority", "checkbox"),
+    ("type_aux1", "select"),
+    ("timer_aux1", "timer"),
+    ("tempo_aux1", "select"),
+    ("setpoint_ph", "select"),
+    ("ph_type", "select"),
+    ("injection_time_ph", "select"),
+    ("volume_max_ph", "select"),
+    ("threshold_stop_ph", "select"),
+    ("OMEOTECH_PROPORTIONAL_PH", "checkbox"),
+    ("setpoint_orp", "select"),
+    ("type_orp", "select"),
+    ("injection_time_ORP", "select"),
+    ("volume_max_ORP", "select"),
+    ("threshold_stop_ORP", "select"),
+    ("orp_volume_weekly_10m3", "select"),
+    ("orp_liter_hour_pump", "select"),
+    ("OMEOTECH_PROPORTIONAL_CHLORINE", "checkbox"),
+    ("freeze_out", "select"),
+    ("OMEOTECH_FROST_PROTECT_AIR_TEMP", "checkbox"),
+    ("FILTRATION_WASH_TIME", "select"),
+    ("FILTRATION_RINSE_TIME", "const:60"),
+    ("OMEOTECH_FILTRATION_TIME_BEFORE_ALERT", "select"),
+    ("timer_filtration", "timer"),
+    ("hourstart", "select"),
+    ("hourend", "select"),
+    ("color_choice", "select"),
+    ("OMEOTECH_LIGHTING_FLAG_COVER", "checkbox"),
+    ("timer_lighting", "timer"),
+]
 
 # ---------------------------------------------------------------------------
 # Official API (api.domotique-piscine.eu) — the backend behind intellipool.eu.
@@ -148,3 +203,24 @@ SWITCH_KEYS = [
     KEY_AUX_2,
     KEY_AUX_3,
 ]
+
+# ---------- Cloud write mappings (defined here, after the KEY_* names) ----------
+# Control value semantics decoded from the control panel image labels.
+# HA key → (device field, {True: on_value, False: off_value})
+CONTROL_FIELD_MAP = {
+    KEY_PUMP: ("filtration", {True: "1", False: "2"}),        # 0=Auto 1=On 2=Off 3=Timer 4=Choc
+    KEY_FILTRATION: ("filtration", {True: "1", False: "2"}),
+    KEY_LIGHT: ("lighting", {True: "0", False: "2"}),         # 0=On 1=Timer 2=Off
+    KEY_HEATING: ("heating_regulation", {True: "0", False: "1"}),   # 0=Auto 1=Off
+    KEY_PH_DOSING: ("ph_regulation", {True: "0", False: "1"}),
+    KEY_ORP_DOSING: ("orp_regulation", {True: "0", False: "1"}),
+    KEY_CHLORINATOR: ("orp_regulation", {True: "0", False: "1"}),
+    KEY_AUX_1: ("aux1", {True: "0", False: "2"}),            # 0=On 1=Schedule 2=Off
+}
+
+# HA setpoint key → device setpoint field
+SETPOINT_FIELD_MAP = {
+    KEY_TARGET_TEMP: "setpoint_heating",
+    KEY_TARGET_PH: "setpoint_ph",
+    KEY_TARGET_ORP: "setpoint_orp",
+}

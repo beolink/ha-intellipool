@@ -1,0 +1,285 @@
+<div class="ui-soblue" >
+
+
+<div class="order-35558" id="commands_35558" >
+
+<form onSubmit="return false;" >
+
+  <div class="ui-notification">
+    <fieldset class="ui-pending">
+      <img src="/res/pool/img/loading29.gif">
+      <p>Modification in progress</p>
+    </fieldset>
+    <fieldset class="ui-error">
+      <p>Error applying changes.</p>
+    </fieldset>
+  </div>
+
+  <div class="ui-group">
+    <fieldset>
+      <p class="ui-center"><span class="ui-info"></span>Choice of connected operating equipment</p>
+    </fieldset>
+  </div>
+
+  <div class="ui-group">
+  
+    <!-- NEW FILTRATION -->
+    
+    <fieldset>
+      <div class="ui-fieldset-title">
+      	<h1>Filtration</h1>
+      </div>
+      
+      <div class="ui-fieldset-table" style="float:right;">
+      	<table width="177px">
+      	  <tr height="100%">
+      	  	<td width="20%">
+      	  	  <input type="hidden" id="filtration" name="filtration" value="2" />
+          	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'filtration', 2);">
+			    <label>OFF</label>
+			    <img id="img_filtration_2" src="/res/pool/img/btn/btn_5_on.png" alt="IMG_OFF" />
+		      </a>
+      	  	</td>
+      	  	<td width="20%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'filtration', 1);">
+			    <label>ON</label>
+			    <img id="img_filtration_1" src="/res/pool/img/btn/btn_5_off.png" alt="IMG_ON" />
+		      </a>
+      	  	</td>
+      	  	<td width="20%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'filtration', 3);">
+			    <label>TIMER</label>
+			    <img id="img_filtration_3" src="/res/pool/img/btn/btn_5_off.png" alt="IMG_TIMER" />
+		      </a>
+      	  	</td>
+      	  	<td width="20%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'filtration', 0);">
+				<label>AUTO</label>
+				<img id="img_filtration_0" src="/res/pool/img/btn/btn_5_off.png" alt="IMG_AUTO" />
+		  	  </a>
+      	  	</td>
+      	  	<td width="20%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'filtration', 4);">
+				<label>CHOC</label>
+				<img id="img_filtration_4" src="/res/pool/img/btn/btn_5_off.png" alt="IMG_CHOC" />
+		  	  </a>
+      	  	</td>
+      	  </tr>
+      	</table>
+      	
+      </div>    
+          
+      
+    		
+    </fieldset>
+
+    <!-- NEW LIGHTING -->
+    
+    <fieldset>
+      <div class="ui-fieldset-title">
+      	<h1>Lighting</h1>
+      </div>
+      <div class="ui-fieldset-table" style="float:right;">
+      	<table width="177px">
+      	  <tr height="100%">
+      	  	<td width="33%">
+      	  	  <input type="hidden" id="lighting" name="lighting" value="2" />
+          	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'lighting', 2);">
+			    <label>OFF</label>
+			    <img id="img_lighting_2" src="/res/pool/img/btn/btn_3_on.png" alt="IMG_OFF" />
+		      </a>
+      	  	</td>
+      	  	<td width="33%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'lighting', 1);">
+			    <label>TIMER</label>
+			    <img id="img_lighting_1" src="/res/pool/img/btn/btn_3_off.png" alt="IMG_TIMER" />
+		      </a>
+      	  	</td>
+      	  	<td width="34%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'lighting', 0);">
+			    <label>ON</label>
+			    <img id="img_lighting_0" src="/res/pool/img/btn/btn_3_off.png" alt="IMG_ON" />
+		      </a>
+      	  	</td>
+      	</table>
+      </div>
+    </fieldset>
+    
+    
+    
+	<!-- NEW AUX1 -->
+	
+	<fieldset>
+      <div class="ui-fieldset-title">
+      	<h1>Aux 1 : BOOST</h1>
+      </div>
+      <div class="ui-fieldset-table" style="float:right;">
+      	<input type="hidden" id="type_aux1" name="type_aux1" value="0" />
+      	
+		<input type="hidden" id="aux1_3p" name="aux1_3p" value="2" />
+
+      	<table width="177px">
+      	  <tr height="100%">
+      	  	<td width="33%">
+          	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'aux1_3p', 2);">
+			    <label>OFF</label>
+			    <img id="img_aux1_3p_2" src="/res/pool/img/btn/btn_3_on.png" alt="IMG_OFF" />
+		      </a>
+      	  	</td>
+      	  	<td width="33%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'aux1_3p', 1);">
+			    <label>TIMER</label>
+			    <img id="img_aux1_3p_1" src="/res/pool/img/btn/btn_3_off.png" alt="IMG_SCHEDULE" />
+		      </a>
+      	  	</td>
+      	  	<td width="34%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'aux1_3p', 0);">
+			    <label>ON</label>
+			    <img id="img_aux1_3p_0" src="/res/pool/img/btn/btn_3_off.png" alt="IMG_ON" />
+		      </a>
+      	  	</td>
+      	</table>
+
+
+      	
+      </div>
+    </fieldset>
+
+    
+	<!-- NEW BACKWASH -->
+	
+		
+    	<!-- NEW HEATING -->
+	
+	<fieldset>
+      <div class="ui-fieldset-title">
+      	<h1>Heating</h1>
+      </div>
+      <div class="ui-fieldset-table" style="float:right;">
+      	<table width="177px">
+      	  <tr height="100%">
+      	  	<td width="50%">
+          	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'heating_regulation', 1);">
+          	  <input type="hidden" id="heating_regulation" name="heating_regulation" value="1" />
+			    <label>OFF</label>
+			    <img id="img_heating_regulation_1" src="/res/pool/img/btn/btn_2_on.png" alt="IMG_OFF" />
+		      </a>
+      	  	</td>
+      	  	<td width="50%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'heating_regulation', 0);">
+			    <label>AUTO</label>
+			    <img id="img_heating_regulation_0" src="/res/pool/img/btn/btn_2_off.png" alt="IMG_AUTO" />
+		      </a>
+      	  	</td>
+      	</table>
+      </div>
+    </fieldset>
+
+    
+    <!-- NEW PH REGULATION -->
+    
+    <fieldset>
+      <div class="ui-fieldset-title">
+      	<h1>pH regulation</h1>
+      </div>
+      <div class="ui-fieldset-table" style="float:right;">
+      	<table width="177px">
+      	  <tr height="100%">
+      	  	<td width="50%">
+          	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'ph_regulation', 1);">
+          	  <input type="hidden" id="ph_regulation" name="ph_regulation" value="1" />
+			    <label>OFF</label>
+			    <img id="img_ph_regulation_1" src="/res/pool/img/btn/btn_2_on.png" alt="IMG_OFF" />
+		      </a>
+      	  	</td>
+      	  	<td width="50%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'ph_regulation', 0);">
+			    <label>AUTO</label>
+			    <img id="img_ph_regulation_0" src="/res/pool/img/btn/btn_2_off.png" alt="IMG_AUTO" />
+		      </a>
+      	  	</td>
+      	</table>
+      </div>
+    </fieldset>
+    
+    
+		<!-- NEW ORP REGULATION -->
+		
+		<fieldset>
+      <div class="ui-fieldset-title">
+      	<h1>ORP (RedOx) reg.</h1>
+      </div>
+      <div class="ui-fieldset-table" style="float:right;">
+      	<table width="177px">
+      	  <tr height="100%">
+      	  	<td width="50%">
+          	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'orp_regulation', 1);">
+          	  <input type="hidden" id="orp_regulation" name="orp_regulation" value="1" />
+			    <label>OFF</label>
+			    <img id="img_orp_regulation_1" src="/res/pool/img/btn/btn_2_on.png" alt="IMG_OFF" />
+		      </a>
+      	  	</td>
+      	  	<td width="50%">
+      	  	  <a class="ui-command" href="javascript:selectCommandsFromSerial('35558', 'orp_regulation', 0);">
+			    <label>AUTO</label>
+			    <img id="img_orp_regulation_0" src="/res/pool/img/btn/btn_2_off.png" alt="IMG_AUTO" />
+		      </a>
+      	  	</td>
+      	</table>
+      </div>
+    </fieldset>
+		
+    
+</div>
+  
+  
+  
+  
+  
+
+  <div class="ui-group">
+	<fieldset class="ui-center">
+      <div class="ui-controls">
+        <p class="ui-center"><button class="ui-button-warning" onClick="javascript:ackFilterWash('35558');">Clear the filter clean</button></p>
+      </div>
+    </fieldset>
+  </div>
+
+  
+  <div class="ui-group">
+	<fieldset class="ui-center">
+      <div class="ui-controls">
+        <p class="ui-center"><button onClick="javascript:saveCommands('35558');">Save modifications</button></p>
+      </div>
+    </fieldset>
+  </div>
+
+</form>
+
+</div>
+
+
+<script type="text/javascript">
+<!-- // --> <![CDATA[
+$(function() {
+  $('#radio').css('font-size', '60%').buttonset();
+  $('.sb-fifop-button').css('font-size', '65%').button();
+  
+  $('#commands_35558').find('input[type="button"], button').button();
+  $('#commands_35558').find('input[type="checkbox"]').button();
+  
+  $('#commands_35558').find('.aux-toggle').auxtoggle();
+  $('#commands_35558').find('.aux-auto').auxauto();
+  
+  
+  $('.order-35558').find('.ui-notification, .ui-pending, ui-error').hide();
+  loadCommands('35558');
+  var commandsOrder = new Order('35558', loadCommands);
+  commandsOrder.checkOmeoOrder();
+} );
+
+// ]]>
+</script>
+
+
+</div>
