@@ -13,12 +13,20 @@ import aiohttp
 from .const import (
     CLOUD_BASE_URL,
     CLOUD_COMMAND_PATH,
+    CLOUD_COMMAND_SAVE_FIELDS,
+    CLOUD_COMMANDS_GET,
+    CLOUD_COMMANDS_SAVE,
     CLOUD_DATA_FIELD_SERIAL,
     CLOUD_DATA_PATH,
     CLOUD_LOGIN_FIELD_PASS,
     CLOUD_LOGIN_FIELD_USER,
     CLOUD_LOGIN_PATH,
     CLOUD_POOL_LIST_PATH,
+    CLOUD_SETPOINTS_GET,
+    CLOUD_SETPOINTS_SAVE,
+    CONTROL_FIELD_MAP,
+    SETPOINT_FIELD_MAP,
+    SETPOINT_FORM_SPEC,
     CONN_TYPE_CLOUD,
     CONN_TYPE_LOCAL,
     CONN_TYPE_OFFICIAL,
@@ -383,6 +391,78 @@ def merge_pool_data(base: PoolData, extra: PoolData | None) -> PoolData:
 
 
 # ---------------------------------------------------------------------------
+# Control / setpoint helpers (cloud write path)
+# ---------------------------------------------------------------------------
+
+def _parse_datas_flat(xml: str) -> dict[str, str]:
+    """Flatten <datas>…</datas> direct children into {tag: text}."""
+    out: dict[str, str] = {}
+    m = re.search(r"<datas[^>]*>(.*?)</datas>", xml, re.S)
+    body = m.group(1) if m else xml
+    for tag, val in re.findall(r"<(\w+)>([^<]*)</\1>", body):
+        out[tag] = val.strip()
+    return out
+
+
+def _parse_setpoint_state(xml: str) -> dict[str, dict[str, str]]:
+    """Parse the setpoints /get XML into {'select':…, 'checkbox':…, 'timer':…}."""
+    state: dict[str, dict[str, str]] = {"select": {}, "checkbox": {}, "timer": {}}
+    for group in ("select", "checkbox", "timer"):
+        gm = re.search(rf"<{group}>(.*?)</{group}>", xml, re.S)
+        if not gm:
+            continue
+        for tag, val in re.findall(r"<(\w+)>([^<]*)</\1>", gm.group(1)):
+            state[group][tag] = val.strip()
+    return state
+
+
+def build_command_body(serial: str, state: dict[str, str], key: str, value: Any) -> str:
+    """Build the commands save body from live state, changing only `key`.
+
+    Verified live against a real INTP-1010B (light toggle) on 2026-07-11.
+    """
+    field, value_map = CONTROL_FIELD_MAP[key]
+    merged = dict(state)
+    merged[field] = value_map[bool(value)]
+    payload: list[tuple[str, str]] = [("serial", serial)]
+    for f in CLOUD_COMMAND_SAVE_FIELDS:
+        if f in merged:
+            payload.append((f, merged[f]))
+    if "aux1" in merged:
+        aux_field = "aux1_3p" if merged.get("type_aux1", "0") != "0" else "aux1_2p"
+        payload.append((aux_field, merged["aux1"]))
+    return "&".join(f"{k}={v}" for k, v in payload)
+
+
+def build_setpoint_body(
+    state: dict[str, dict[str, str]], overrides: dict[str, str] | None = None
+) -> str:
+    """Reproduce the app's setpoints form.serialize() from the /get state.
+
+    Iterates SETPOINT_FORM_SPEC in submit order. `overrides` replaces a
+    field's value (e.g. {"setpoint_heating": "26"}). Byte-for-byte identical
+    to the app's own jQuery serialize (verified in tests) so only the changed
+    setpoint differs from what the UI would send.
+    """
+    overrides = overrides or {}
+    parts: list[str] = []
+    for name, kind in SETPOINT_FORM_SPEC:
+        if kind == "checkbox":
+            checked = overrides.get(name, state["checkbox"].get(name, "false"))
+            if str(checked).lower() == "true":
+                parts.append(f"{name}=on")
+            continue
+        if kind.startswith("const:"):
+            value = overrides.get(name, kind.split(":", 1)[1])
+        elif kind == "timer":
+            value = overrides.get(name, state["timer"].get(name, ""))
+        else:  # select
+            value = overrides.get(name, state["select"].get(name, ""))
+        parts.append(f"{name}={value}")
+    return "&".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Local API
 # ---------------------------------------------------------------------------
 
@@ -634,23 +714,74 @@ class IntelliPoolCloudAPI:
             resp.raise_for_status()
             return await resp.text(errors="replace")
 
-    async def send_command(self, key: str, value: Any) -> None:
-        """Send a control command via the cloud service."""
+    async def _get_text(self, path: str, params: dict) -> str:
         session = await self._get_session()
-        url = f"{CLOUD_BASE_URL}{CLOUD_COMMAND_PATH}"
-        payload: dict[str, Any] = {"command": key, "value": value}
-        if self._pool_id:
-            payload["poolId"] = self._pool_id
+        async with session.get(f"{CLOUD_BASE_URL}{path}", params=params) as resp:
+            resp.raise_for_status()
+            return await resp.text(errors="replace")
+
+    async def _post_text(self, path: str, body: str) -> str:
+        session = await self._get_session()
+        async with session.post(
+            f"{CLOUD_BASE_URL}{path}",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        ) as resp:
+            resp.raise_for_status()
+            return await resp.text(errors="replace")
+
+    async def send_command(self, key: str, value: Any) -> None:
+        """Send a control or setpoint change via intellipool.eu.
+
+        Controls (pump/light/heating/pH/ORP/aux) use a read-modify-write on the
+        small commands form. Setpoints (target temp/pH/ORP) rebuild the full
+        setpoints form so only the changed value differs from the app's own
+        submission. Both create an async device order (applied on next check-in).
+        """
+        if not self._pool_id:
+            raise CannotConnect("No pool serial known; cannot send command")
+        serial = self._pool_id
+
+        if key in CONTROL_FIELD_MAP:
+            await self._send_control(serial, key, value)
+        elif key in SETPOINT_FIELD_MAP:
+            await self._send_setpoint(serial, key, value)
+        else:
+            raise CannotConnect(f"Unsupported command '{key}'")
+
+    async def _send_control(self, serial: str, key: str, value: Any) -> None:
         try:
-            async with session.post(url, json=payload) as resp:
-                if resp.status == 401:
-                    await self.login()
-                    async with session.post(url, json=payload) as resp2:
-                        resp2.raise_for_status()
-                else:
-                    resp.raise_for_status()
+            state = _parse_datas_flat(
+                await self._get_text(CLOUD_COMMANDS_GET, {"serial": serial})
+            )
+            body = build_command_body(serial, state, key, value)
+            result = await self._post_text(CLOUD_COMMANDS_SAVE, body)
+            if "Command was sent" not in result and "poolLogin/login" in result:
+                await self.login()
+                await self._post_text(CLOUD_COMMANDS_SAVE, body)
+            _LOGGER.info("Intellipool control %s=%s sent", key, value)
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            raise CannotConnect(f"Cloud command failed: {err}") from err
+            raise CannotConnect(f"Control command failed: {err}") from err
+
+    async def _send_setpoint(self, serial: str, key: str, value: Any) -> None:
+        field = SETPOINT_FIELD_MAP[key]
+        # Setpoints are integer-valued in the UI (temp/ORP) or one-decimal (pH).
+        num = float(value)
+        target = str(int(num)) if num.is_integer() else str(num)
+        try:
+            state = _parse_setpoint_state(
+                await self._get_text(CLOUD_SETPOINTS_GET, {"serial": serial})
+            )
+            body = "serial=" + serial + "&" + build_setpoint_body(
+                state, overrides={field: target}
+            )
+            result = await self._post_text(CLOUD_SETPOINTS_SAVE, body)
+            if "poolLogin/login" in result:
+                await self.login()
+                await self._post_text(CLOUD_SETPOINTS_SAVE, body)
+            _LOGGER.info("Intellipool setpoint %s=%s sent", field, target)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CannotConnect(f"Setpoint command failed: {err}") from err
 
     async def test_connection(self) -> bool:
         """Return True if credentials are valid."""

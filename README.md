@@ -133,32 +133,54 @@ Ange install-ID + API-nyckel i molnsteget. Då gäller:
 | Login | ✅ Bekräftat | `POST /pool/poolLogin/login`, fält `login` + `pass` (klartext/TLS) |
 | Serienummer | ✅ Auto | Extraheras från `displaySummary('<serial>')` på landningssidan |
 | **Sensordata** | ✅ Bekräftat | `POST /pool/poolSummary` med `serial=<n>` → **HTML** som parsas till alla mätvärden |
-| Styr-kommandon | ⏳ Kvar | Fångas via DevTools (se nedan) |
+| **Styrning** | ✅ Live-verifierat | `POST /pool/ajaxCommands/save` (pump, ljus, värme, pH, ORP, aux) |
+| **Börvärden** | ✅ Byte-validerat | `POST /pool/ajaxSetpoints/save` (mål-temp, pH, ORP) |
 
-Datasvaret är alltså **HTML** (inte JSON) — pluginen parsar det i `_map_cloud_response()`
-i [`api.py`](custom_components/intellipool/api.py), regressionstestat i
-[`tests/test_summary_parser.py`](tests/test_summary_parser.py).
+Datasvaret är **HTML** (inte JSON) — parsas i `_map_cloud_response()` i
+[`api.py`](custom_components/intellipool/api.py).
 
 ---
 
-## Fånga styr-kommandona (återstår för att kunna styra)
+## Styrning & börvärden (bekräftat)
 
-När du vill kunna **styra** poolen (inte bara läsa av) behöver kommando-anropen fångas:
+Styrningen upptäcktes genom att inspektera appens JavaScript i en inloggad session
+och är **live-verifierad** mot en riktig INTP-1010B (2026-07-11).
 
-1. Öppna [intellipool.eu](https://www.intellipool.eu), logga in, tryck **Cmd+Option+I**
-   (Mac) / **F12** → fliken **Network**
-2. Bocka i **Preserve log**, filtrera på `XHR`
-3. Tryck en styrknapp i gränssnittet (t.ex. tänd belysning, ändra ett börvärde)
-4. Notera anropet som dyker upp: **Request URL**, **Method**, och **payload**
-   (troligen `/pool/ajax…` eller liknande med `serial=` + kommandoparametrar)
+### Controls — `POST /pool/ajaxCommands/save`
+Läs nuvarande läge med `GET /pool/ajaxCommands/get`, ändra ett fält, posta hela.
+Svar vid lyckat: `<status>Command was sent</status>`.
 
-Enklast via Console: kör `funktionsnamn.toString()` på styrfunktionen (som vi gjorde
-med `displaySummary`) så syns exakt URL och parametrar. Klistra in i ett
-[GitHub-issue](https://github.com/beolink/ha-intellipool/issues) så bygger vi in
-`send_command()` och `CLOUD_COMMAND_PATH`.
+| HA-entitet | Fält | Värden |
+|---|---|---|
+| Pump | `filtration` | 0=Auto, 1=På, 2=Av, 3=Timer, 4=Chock |
+| Belysning | `lighting` | 0=På, 1=Timer, 2=Av |
+| Uppvärmning | `heating_regulation` | 0=Auto, 1=Av |
+| pH-dosering | `ph_regulation` | 0=Auto, 1=Av |
+| ORP-dosering | `orp_regulation` | 0=Auto, 1=Av |
+| Aux 1 | `aux1` (`aux1_3p`/`aux1_2p`) | 0=På, 1=Schema, 2=Av |
 
-> **Tips:** *Copy → Copy as cURL* på ett anrop fångar URL + payload på en gång.
-> Delar du en HAR-fil: ta bort `PHPSESSID`-cookien och lösenordet först.
+### Setpoints — `POST /pool/ajaxSetpoints/save`
+Läs med `GET /pool/ajaxSetpoints/get`, bygg om hela formuläret (33 fält i exakt
+ordning) och ändra bara målfältet. Kroppen byggs av `build_setpoint_body()` och är
+**byte-identisk** med appens egen `form.serialize()` — verifierat i
+[`tests/test_write_paths.py`](tests/test_write_paths.py), så bara det ändrade
+börvärdet skiljer sig från vad appen själv skickar.
+
+- `setpoint_heating` (mål-vattentemperatur), `setpoint_ph`, `setpoint_orp`
+
+Efter varje `/save` pollar appen `/pool/ajaxOmeoGetCurrentsOrder` tills enheten
+bekräftat ordern (`<order current="true" failed="false"/>`) — den asynkrona
+"väntar på enheten"-mekanismen, eftersom enheten bara når molnet utgående.
+
+> **Säkerhet:** styr-anropen ändrar din riktiga utrustning. Pluginen läser alltid
+> aktuellt tillstånd först och ändrar bara det efterfrågade fältet, så inga andra
+> inställningar rörs. Belysningsstyrningen är live-testad; börvärdes-kroppen är
+> byte-validerad mot appen.
+
+### Ännu ej inbyggt
+IntelliFlo pumpvarvtal (`/pool/ajaxIntelliFlo`), scheman (`timer_*`), och historik
+(`api.domotique-piscine.eu/poolLastValues`) är kartlagda men inte exponerade som
+entiteter än.
 
 ### Avancerat: äkta lokal styrning via trafik-proxy
 
