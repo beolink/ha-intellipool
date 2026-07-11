@@ -8,6 +8,13 @@
           "connection_type": "Anslutningstyp"
         }
       },
+      "scan": {
+        "title": "Nätverkssökning",
+        "description": "Hittade {count} möjlig(a) enhet(er) på nätverket. Välj din Intellipool eller ange IP manuellt.",
+        "data": {
+          "discovered_host": "Enhet"
+        }
+      },
       "local": {
         "title": "Lokal anslutning",
         "description": "Ange IP-adressen till din INTP-1010B. Integrationen probar vanliga API-endpoints automatiskt.",

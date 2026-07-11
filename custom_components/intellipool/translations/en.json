@@ -8,6 +8,13 @@
           "connection_type": "Connection type"
         }
       },
+      "scan": {
+        "title": "Network scan",
+        "description": "Found {count} candidate device(s) on the network. Select your Intellipool or enter the IP manually.",
+        "data": {
+          "discovered_host": "Device"
+        }
+      },
       "local": {
         "title": "Local connection",
         "description": "Enter the IP address of your Intellipool INTP-1010B. The integration will probe common API endpoints automatically.",

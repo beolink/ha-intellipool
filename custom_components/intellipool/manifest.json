@@ -1,12 +1,24 @@
 {
   "domain": "intellipool",
   "name": "Pentair Intellipool",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "config_flow": true,
   "documentation": "https://github.com/beolink/ha-intellipool",
   "issue_tracker": "https://github.com/beolink/ha-intellipool/issues",
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@beolink"],
-  "iot_class": "local_polling"
+  "iot_class": "local_polling",
+  "zeroconf": [
+    {"type": "_http._tcp.local.", "name": "pentair*"},
+    {"type": "_http._tcp.local.", "name": "intellipool*"},
+    {"type": "_pentair._tcp.local."},
+    {"type": "_intellipool._tcp.local."}
+  ],
+  "dhcp": [
+    {"hostname": "intellipool*"},
+    {"hostname": "pentair*"},
+    {"hostname": "intp*"},
+    {"macaddress": "00C033*"}
+  ]
 }

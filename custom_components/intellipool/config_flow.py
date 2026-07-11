@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.components import dhcp, zeroconf
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
@@ -24,8 +25,11 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
+from .discovery import DiscoveredDevice, discover_devices
 
 _LOGGER = logging.getLogger(__name__)
+
+CONF_DISCOVERED_HOST = "discovered_host"
 
 STEP_TYPE_SCHEMA = vol.Schema(
     {
@@ -54,6 +58,22 @@ STEP_CLOUD_SCHEMA = vol.Schema(
 )
 
 
+def _discovered_options(devices: list[DiscoveredDevice]) -> dict[str, str]:
+    """Build a dict of label → value for the discovery picker."""
+    opts: dict[str, str] = {}
+    for dev in devices:
+        label_parts = [dev.host]
+        if dev.hostname:
+            label_parts.append(f"({dev.hostname})")
+        if dev.fingerprint_match:
+            label_parts.append(f"[{dev.fingerprint_match}]")
+        label_parts.append(f"port {dev.port}")
+        label_parts.append(f"– {dev.confidence} confidence")
+        opts[" ".join(label_parts)] = f"{dev.host}:{dev.port}"
+    opts["Ange IP manuellt / Enter IP manually"] = "manual"
+    return opts
+
+
 class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the Intellipool config flow."""
 
@@ -62,11 +82,24 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._conn_type: str | None = None
         self._data: dict[str, Any] = {}
+        self._discovered: list[DiscoveredDevice] = []
+        # Pre-filled values from passive discovery (zeroconf/dhcp)
+        self._prefill_host: str | None = None
+        self._prefill_port: int = DEFAULT_PORT
+        self._prefill_hostname: str | None = None
+
+    # ------------------------------------------------------------------
+    # Entry point
+    # ------------------------------------------------------------------
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         return await self.async_step_connection_type(user_input)
+
+    # ------------------------------------------------------------------
+    # Step: choose connection type
+    # ------------------------------------------------------------------
 
     async def async_step_connection_type(
         self, user_input: dict[str, Any] | None = None
@@ -75,14 +108,105 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._conn_type = user_input[CONF_CONNECTION_TYPE]
             self._data[CONF_CONNECTION_TYPE] = self._conn_type
             if self._conn_type == CONN_TYPE_LOCAL:
-                return await self.async_step_local()
+                return await self.async_step_scan()
             return await self.async_step_cloud()
 
         return self.async_show_form(
             step_id="connection_type",
             data_schema=STEP_TYPE_SCHEMA,
-            description_placeholders={},
         )
+
+    # ------------------------------------------------------------------
+    # Step: active network scan
+    # ------------------------------------------------------------------
+
+    async def async_step_scan(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Kick off a subnet + hostname scan, then show the picker."""
+        if user_input is not None:
+            choice = user_input.get(CONF_DISCOVERED_HOST, "manual")
+            if choice == "manual" or not choice:
+                # Jump straight to manual form, possibly pre-filled
+                return await self.async_step_local()
+
+            # Parse "ip:port" from choice
+            try:
+                host, port_str = choice.rsplit(":", 1)
+                port = int(port_str)
+            except ValueError:
+                host = choice
+                port = DEFAULT_PORT
+
+            # Match the chosen device to pre-fill api_path
+            for dev in self._discovered:
+                if dev.host == host and dev.port == port:
+                    self._prefill_host = host
+                    self._prefill_port = port
+                    self._data[CONF_CONNECTION_TYPE] = CONN_TYPE_LOCAL
+                    # Skip the manual form — go straight to confirm
+                    return await self._confirm_local(host, port, dev.api_path)
+            self._prefill_host = host
+            self._prefill_port = port
+            return await self.async_step_local()
+
+        # Run discovery (up to 20 s so the UI doesn't time out)
+        _LOGGER.info("Running Intellipool network discovery…")
+        try:
+            self._discovered = await discover_devices(timeout=20.0)
+        except Exception:
+            _LOGGER.exception("Discovery failed, falling back to manual entry")
+            self._discovered = []
+
+        if not self._discovered and self._prefill_host is None:
+            # Nothing found and no passive hint — go straight to manual
+            return await self.async_step_local()
+
+        options = _discovered_options(self._discovered)
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_DISCOVERED_HOST): vol.In(options),
+            }
+        )
+        return self.async_show_form(
+            step_id="scan",
+            data_schema=schema,
+            description_placeholders={
+                "count": str(len(self._discovered)),
+            },
+        )
+
+    async def _confirm_local(
+        self, host: str, port: int, api_path: str | None
+    ) -> FlowResult:
+        """Verify the discovered device and create the entry."""
+        session = async_get_clientsession(self.hass)
+        api = IntelliPoolLocalAPI(host=host, port=port, session=session)
+        if api_path:
+            api._data_path = api_path  # skip re-discovery
+        try:
+            await api.get_data()
+        except (CannotConnect, EndpointNotFound, Exception) as err:
+            _LOGGER.warning("Could not confirm discovered device %s: %s", host, err)
+            # Fall through to manual so user can adjust credentials
+            return await self.async_step_local()
+
+        self._data.update(
+            {
+                CONF_CONNECTION_TYPE: CONN_TYPE_LOCAL,
+                CONF_HOST: host,
+                CONF_PORT: port,
+                CONF_SSL: port in (443, 8443),
+            }
+        )
+        return self.async_create_entry(
+            title=f"Intellipool @ {host}",
+            data=self._data,
+        )
+
+    # ------------------------------------------------------------------
+    # Step: manual local entry
+    # ------------------------------------------------------------------
 
     async def async_step_local(
         self, user_input: dict[str, Any] | None = None
@@ -113,14 +237,33 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._data.update(user_input)
-                title = f"Intellipool @ {user_input[CONF_HOST]}"
-                return self.async_create_entry(title=title, data=self._data)
+                return self.async_create_entry(
+                    title=f"Intellipool @ {user_input[CONF_HOST]}",
+                    data=self._data,
+                )
 
+        # Pre-fill from passive/active discovery if available
+        default_host = self._prefill_host or vol.UNDEFINED
+        default_port = self._prefill_port
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST, default=default_host): str,
+                vol.Optional(CONF_PORT, default=default_port): int,
+                vol.Optional(CONF_SSL, default=default_port in (443, 8443)): bool,
+                vol.Optional(CONF_USERNAME, default=""): str,
+                vol.Optional(CONF_PASSWORD, default=""): str,
+            }
+        )
         return self.async_show_form(
             step_id="local",
-            data_schema=STEP_LOCAL_SCHEMA,
+            data_schema=schema,
             errors=errors,
         )
+
+    # ------------------------------------------------------------------
+    # Step: cloud
+    # ------------------------------------------------------------------
 
     async def async_step_cloud(
         self, user_input: dict[str, Any] | None = None
@@ -148,14 +291,68 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if api.pool_id:
                     user_input[CONF_POOL_ID] = api.pool_id
                 self._data.update(user_input)
-                title = f"Intellipool ({user_input[CONF_USERNAME]})"
-                return self.async_create_entry(title=title, data=self._data)
+                return self.async_create_entry(
+                    title=f"Intellipool ({user_input[CONF_USERNAME]})",
+                    data=self._data,
+                )
 
         return self.async_show_form(
             step_id="cloud",
             data_schema=STEP_CLOUD_SCHEMA,
             errors=errors,
         )
+
+    # ------------------------------------------------------------------
+    # Passive discovery handlers (zeroconf + dhcp)
+    # ------------------------------------------------------------------
+
+    async def async_step_zeroconf(
+        self, discovery_info: zeroconf.ZeroconfServiceInfo
+    ) -> FlowResult:
+        """Handle a device discovered via mDNS."""
+        host = str(discovery_info.host)
+        port = discovery_info.port or DEFAULT_PORT
+        hostname = discovery_info.hostname.rstrip(".")
+
+        _LOGGER.info(
+            "Intellipool zeroconf discovery: %s (%s:%d)", hostname, host, port
+        )
+
+        await self.async_set_unique_id(f"zeroconf_{host}_{port}")
+        self._abort_if_unique_id_configured()
+
+        self._prefill_host = host
+        self._prefill_port = port
+        self._prefill_hostname = hostname
+        self._data[CONF_CONNECTION_TYPE] = CONN_TYPE_LOCAL
+
+        self.context["title_placeholders"] = {"host": hostname or host}
+        return await self.async_step_local()
+
+    async def async_step_dhcp(
+        self, discovery_info: dhcp.DhcpServiceInfo
+    ) -> FlowResult:
+        """Handle a device discovered via DHCP."""
+        host = discovery_info.ip
+        hostname = discovery_info.hostname
+
+        _LOGGER.info(
+            "Intellipool DHCP discovery: %s (%s)", hostname, host
+        )
+
+        await self.async_set_unique_id(f"dhcp_{host}")
+        self._abort_if_unique_id_configured()
+
+        self._prefill_host = host
+        self._prefill_hostname = hostname
+        self._data[CONF_CONNECTION_TYPE] = CONN_TYPE_LOCAL
+
+        self.context["title_placeholders"] = {"host": hostname or host}
+        return await self.async_step_local()
+
+    # ------------------------------------------------------------------
+    # Options
+    # ------------------------------------------------------------------
 
     @staticmethod
     @callback
