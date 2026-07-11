@@ -193,16 +193,28 @@ Kartlagt (endpoints/fixtures finns) men inte inbyggt än, i ungefärlig priorite
 - [x] **Schemastyrning** — `timer_filtration` / `timer_lighting` / `timer_aux1` som `text`-entiteter (24-tecken/tim)
 - [ ] **Kvalitetspolish** — hassfest/HACS-CI grönt, robustare session-återinloggning,
   fler tester, quality scale
-- [ ] **Historik-import (tungt, längst ner)** — bakåtfyll gamla mätvärden till HA:s
-  långtidsstatistik via `async_import_statistics`. **Datakällan testad och bekräftad:**
-  `GET /pool/ajaxHistoric/getJsonValues?serial=<s>&date=<Y-m-d>&type_date=DAY|MONTH|YEAR`
-  (intellipool.eu, sessionsbaserat). Svar: `{status, typeDate, records:[{typeInfo,
-  values[], min, max, avg}]}` — DAY ger timvärden (25/dygn), MONTH dagsvärden (~31),
-  YEAR månadsvärden. Tidsstämplar via `DATETIME_ISO`/`DATETIME`. Tillgängliga serier:
-  WATER_TEMP, AIR_TEMP, PH, ORP, CONDUCTIVITY, PENTAIR_FILTRATION_POWER,
-  PENTAIR_FILTRATION_PUMP_RPM, BATTERY_PEROK, RSSI. Kvar att bygga: en tjänst som
-  itererar dygn bakåt och mappar hour-index → tidsstämpel → `StatisticData` per
-  sensor (`mean`/`min`/`max` finns färdigt i svaret)
+- [x] **Historik-import** — tjänsten `intellipool.import_history` bakåtfyller HA:s
+  långtidsstatistik med timvärden från
+  `/pool/ajaxHistoric/getJsonValues` (se avsnittet "Historik-import" nedan)
+
+---
+
+## Historik-import
+
+Tjänsten **`intellipool.import_history`** bakåtfyller Home Assistants
+långtidsstatistik med timvärden så att äldre historik dyker upp på de befintliga
+sensorernas grafer.
+
+- Anropas från **Utvecklarverktyg → Åtgärder → `Intellipool: Importera historik`**
+  (eller i en automation), med argumentet `days` (antal dygn bakåt, standard 7)
+- Hämtar `GET /pool/ajaxHistoric/getJsonValues?serial=&date=&type_date=DAY` per dygn
+  (timupplösning) och skriver `mean/min/max` per timme till statistiken
+  (`source: recorder`, dvs. direkt på sensorn)
+- Kräver **molnanslutning** (sessionsbaserat). Importerade serier: vattentemp,
+  lufttemp, pH, ORP, salt, pumpeffekt, pumpvarvtal, sensorbatteri, radiosignal
+- Idempotent: en redan importerad timme skrivs bara över med samma värde
+
+Verifierat i [`tests/test_history_import.py`](tests/test_history_import.py).
 
 ### Avancerat: äkta lokal styrning via trafik-proxy
 

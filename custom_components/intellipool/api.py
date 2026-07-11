@@ -18,6 +18,7 @@ from .const import (
     CLOUD_COMMANDS_SAVE,
     CLOUD_DATA_FIELD_SERIAL,
     CLOUD_DATA_PATH,
+    CLOUD_HISTORY_PATH,
     CLOUD_INTELLIFLO_GET,
     CLOUD_INTELLIFLO_SAVE,
     CLOUD_LOGIN_FIELD_PASS,
@@ -494,6 +495,20 @@ def build_setpoint_body(
     return "&".join(parts)
 
 
+def parse_history_values(values: list) -> list[float | None]:
+    """Convert a historic values array (strings, '--' = no data) to floats/None."""
+    out: list[float | None] = []
+    for v in values or []:
+        if v is None or v in ("--", ""):
+            out.append(None)
+            continue
+        try:
+            out.append(float(str(v).replace("+", "").replace(",", ".")))
+        except ValueError:
+            out.append(None)
+    return out
+
+
 def build_intelliflo_body(
     state: dict[str, str], overrides: dict[str, str] | None = None
 ) -> str:
@@ -918,6 +933,33 @@ class IntelliPoolCloudAPI:
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise CannotConnect(f"Setpoint command failed: {err}") from err
 
+    async def get_history(self, date: str, type_date: str = "DAY") -> list[dict]:
+        """Fetch historic time-series records for a date.
+
+        type_date: "DAY" (hourly), "MONTH" (daily) or "YEAR" (monthly).
+        Returns the `records` list: [{typeInfo, values[], min, max, avg}].
+        """
+        if not self._pool_id:
+            raise CannotConnect("No pool serial known; cannot fetch history")
+        params = {
+            "serial": self._pool_id,
+            "date": date,
+            "type_date": type_date,
+        }
+        try:
+            text = await self._get_text(CLOUD_HISTORY_PATH, params)
+            if "poolLogin/login" in text:
+                await self.login()
+                text = await self._get_text(CLOUD_HISTORY_PATH, params)
+            import json
+
+            payload = json.loads(text)
+            if payload.get("status") == "error":
+                raise CannotConnect(payload.get("message", "History error"))
+            return payload.get("records", [])
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            raise CannotConnect(f"History fetch failed: {err}") from err
+
     async def test_connection(self) -> bool:
         """Return True if credentials are valid."""
         try:
@@ -1062,6 +1104,13 @@ class IntelliPoolAPI:
                 "This connection type does not support control commands"
             )
         await self._backend.send_command(key, value)  # type: ignore[union-attr]
+
+    async def get_history(self, date: str, type_date: str = "DAY") -> list[dict]:
+        if not hasattr(self._backend, "get_history"):
+            raise CannotConnect(
+                "History import requires the cloud (intellipool.eu) connection"
+            )
+        return await self._backend.get_history(date, type_date)  # type: ignore[union-attr]
 
     async def close(self) -> None:
         await self._backend.close()
