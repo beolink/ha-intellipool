@@ -193,11 +193,16 @@ Kartlagt (endpoints/fixtures finns) men inte inbyggt än, i ungefärlig priorite
 - [x] **Schemastyrning** — `timer_filtration` / `timer_lighting` / `timer_aux1` som `text`-entiteter (24-tecken/tim)
 - [ ] **Kvalitetspolish** — hassfest/HACS-CI grönt, robustare session-återinloggning,
   fler tester, quality scale
-- [ ] **Historik-import (tungt, längst ner)** — bakåtfyll gamla mätvärden från
-  `api.domotique-piscine.eu/poolLastValues` till HA:s långtidsstatistik via
-  `async_import_statistics`. Kräver: fastställa `poolLastValues`-parametrarna
-  (serienummer-param + datumintervall + nyckel), parsa dataformatet, mappa till
-  statistik-tabellerna (timvisa buckets, korrekt metadata)
+- [ ] **Historik-import (tungt, längst ner)** — bakåtfyll gamla mätvärden till HA:s
+  långtidsstatistik via `async_import_statistics`. **Datakällan testad och bekräftad:**
+  `GET /pool/ajaxHistoric/getJsonValues?serial=<s>&date=<Y-m-d>&type_date=DAY|MONTH|YEAR`
+  (intellipool.eu, sessionsbaserat). Svar: `{status, typeDate, records:[{typeInfo,
+  values[], min, max, avg}]}` — DAY ger timvärden (25/dygn), MONTH dagsvärden (~31),
+  YEAR månadsvärden. Tidsstämplar via `DATETIME_ISO`/`DATETIME`. Tillgängliga serier:
+  WATER_TEMP, AIR_TEMP, PH, ORP, CONDUCTIVITY, PENTAIR_FILTRATION_POWER,
+  PENTAIR_FILTRATION_PUMP_RPM, BATTERY_PEROK, RSSI. Kvar att bygga: en tjänst som
+  itererar dygn bakåt och mappar hour-index → tidsstämpel → `StatisticData` per
+  sensor (`mean`/`min`/`max` finns färdigt i svaret)
 
 ### Avancerat: äkta lokal styrning via trafik-proxy
 
