@@ -25,6 +25,7 @@ from .const import (
     CLOUD_SETPOINTS_GET,
     CLOUD_SETPOINTS_SAVE,
     CONTROL_FIELD_MAP,
+    RAW_CONTROL_MAP,
     SETPOINT_FIELD_MAP,
     SETPOINT_FORM_SPEC,
     CONN_TYPE_CLOUD,
@@ -118,6 +119,10 @@ class PoolData:
     target_temperature: float | None = None
     target_ph: float | None = None
     target_orp: float | None = None
+
+    # Live control modes from /pool/ajaxCommands/get (cloud only), e.g.
+    # {"filtration": "1", "lighting": "2", ...}. Empty when unavailable.
+    command_state: dict[str, str] = field(default_factory=dict)
 
     # Raw response for debugging
     raw: dict[str, Any] = field(default_factory=dict)
@@ -416,22 +421,36 @@ def _parse_setpoint_state(xml: str) -> dict[str, dict[str, str]]:
     return state
 
 
+def _serialize_command_state(serial: str, state: dict[str, str]) -> str:
+    """Serialize command fields into the exact save-form body."""
+    payload: list[tuple[str, str]] = [("serial", serial)]
+    for f in CLOUD_COMMAND_SAVE_FIELDS:
+        if f in state:
+            payload.append((f, state[f]))
+    if "aux1" in state:
+        aux_field = "aux1_3p" if state.get("type_aux1", "0") != "0" else "aux1_2p"
+        payload.append((aux_field, state["aux1"]))
+    return "&".join(f"{k}={v}" for k, v in payload)
+
+
 def build_command_body(serial: str, state: dict[str, str], key: str, value: Any) -> str:
-    """Build the commands save body from live state, changing only `key`.
+    """Build the commands save body from live state, changing only `key` (on/off).
 
     Verified live against a real INTP-1010B (light toggle) on 2026-07-11.
     """
     field, value_map = CONTROL_FIELD_MAP[key]
     merged = dict(state)
     merged[field] = value_map[bool(value)]
-    payload: list[tuple[str, str]] = [("serial", serial)]
-    for f in CLOUD_COMMAND_SAVE_FIELDS:
-        if f in merged:
-            payload.append((f, merged[f]))
-    if "aux1" in merged:
-        aux_field = "aux1_3p" if merged.get("type_aux1", "0") != "0" else "aux1_2p"
-        payload.append((aux_field, merged["aux1"]))
-    return "&".join(f"{k}={v}" for k, v in payload)
+    return _serialize_command_state(serial, merged)
+
+
+def build_command_body_raw(
+    serial: str, state: dict[str, str], field: str, raw_value: str
+) -> str:
+    """Build the commands save body, setting `field` to a raw mode value."""
+    merged = dict(state)
+    merged[field] = str(raw_value)
+    return _serialize_command_state(serial, merged)
 
 
 def build_setpoint_body(
@@ -703,7 +722,17 @@ class IntelliPoolCloudAPI:
                 await self.login()
                 html_body = await self._post_summary(session, url, payload)
             _LOGGER.debug("Intellipool cloud raw data (%d bytes)", len(html_body))
-            return _map_cloud_response(html_body)
+            data = _map_cloud_response(html_body)
+            # Best-effort: also read the live control modes (Auto/On/Off/…) so
+            # switches/selects reflect the actual mode, not just LED on/off.
+            try:
+                cmd_xml = await self._get_text(
+                    CLOUD_COMMANDS_GET, {"serial": self._pool_id}
+                )
+                data.command_state = _parse_datas_flat(cmd_xml)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Could not read command state: %s", err)
+            return data
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise CannotConnect(f"Cloud data fetch failed: {err}") from err
 
@@ -742,12 +771,29 @@ class IntelliPoolCloudAPI:
             raise CannotConnect("No pool serial known; cannot send command")
         serial = self._pool_id
 
-        if key in CONTROL_FIELD_MAP:
+        if key in RAW_CONTROL_MAP:
+            await self._send_control_raw(serial, key, str(value))
+        elif key in CONTROL_FIELD_MAP:
             await self._send_control(serial, key, value)
         elif key in SETPOINT_FIELD_MAP:
             await self._send_setpoint(serial, key, value)
         else:
             raise CannotConnect(f"Unsupported command '{key}'")
+
+    async def _send_control_raw(self, serial: str, key: str, raw_value: str) -> None:
+        field, _labels = RAW_CONTROL_MAP[key]
+        try:
+            state = _parse_datas_flat(
+                await self._get_text(CLOUD_COMMANDS_GET, {"serial": serial})
+            )
+            body = build_command_body_raw(serial, state, field, raw_value)
+            result = await self._post_text(CLOUD_COMMANDS_SAVE, body)
+            if "Command was sent" not in result and "poolLogin/login" in result:
+                await self.login()
+                await self._post_text(CLOUD_COMMANDS_SAVE, body)
+            _LOGGER.info("Intellipool %s=%s sent", field, raw_value)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CannotConnect(f"Control command failed: {err}") from err
 
     async def _send_control(self, serial: str, key: str, value: Any) -> None:
         try:

@@ -32,6 +32,8 @@ Stöder:
 | `switch` | pH-dosering | På/av |
 | `switch` | ORP-dosering | På/av |
 | `switch` | Extra 1–3 (AUX) | Auxiliära utgångar |
+| `select` | Filtreringsläge | Auto/På/Av/Timer/Chock |
+| `select` | Belysningsläge | På/Timer/Av |
 | `climate` | Poolvärmning | HVAC-entitet med temperaturmål |
 | `number` | pH-börvärde | 6.8–7.8 |
 | `number` | ORP-börvärde | 200–800 mV |
@@ -181,10 +183,9 @@ bekräftat ordern (`<order current="true" failed="false"/>`) — den asynkrona
 
 Kartlagt (endpoints/fixtures finns) men inte inbyggt än, i ungefärlig prioritetsordning:
 
-- [ ] **Verifiera i skarp HA** — ladda integrationen i en riktig instans, bekräfta att
-  entiteter dyker upp, data uppdateras och en styrning går igenom (allt hittills är
-  offline-/enhetsvaliderat + ett live styr-test)
-- [ ] **Filtration som `select`** (Auto/På/Av/Timer/Chock) i stället för bara på/av-switch
+- [x] **Verifiera i skarp HA** — integrationen laddas i riktig HA (2026.2) och data flödar
+  in i entiteterna; verifierat i [`tests/test_ha_integration.py`](tests/test_ha_integration.py)
+- [x] **Filtration/belysning som `select`** (Auto/På/Av/Timer/Chock) utöver på/av-switcharna
 - [ ] **IntelliFlo pumpvarvtal** — `/pool/ajaxIntelliFlo/get|save` (number/select för hastighet)
 - [ ] **Schemastyrning** — `timer_filtration` / `timer_lighting` / `timer_aux1` (24-tecken/tim)
 - [ ] **Kvalitetspolish** — hassfest/HACS-CI grönt, robustare session-återinloggning,

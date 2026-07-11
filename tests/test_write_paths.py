@@ -150,6 +150,17 @@ def test_control_off_maps_correctly():
     assert "heating_regulation=0" in api.build_command_body("35558", state, "heating", True)
 
 
+def test_raw_mode_body():
+    """Filtration select → Timer (raw value 3), other fields preserved."""
+    api = _load_api()
+    state = api._parse_datas_flat(COMMANDS_GET_XML)
+    body = api.build_command_body_raw("35558", state, "filtration", "3")
+    assert body == (
+        "serial=35558&filtration=3&lighting=2&type_aux1=2"
+        "&heating_regulation=1&ph_regulation=1&orp_regulation=0&aux1_3p=2"
+    ), body
+
+
 def test_setpoint_body_matches_app_serialize():
     api = _load_api()
     state = api._parse_setpoint_state(SETPOINTS_GET_XML)
@@ -172,6 +183,7 @@ def test_setpoint_override_changes_only_target():
 if __name__ == "__main__":
     test_control_body_matches_live()
     test_control_off_maps_correctly()
+    test_raw_mode_body()
     test_setpoint_body_matches_app_serialize()
     test_setpoint_override_changes_only_target()
     print("All write-path tests passed (control + setpoint bodies match ground truth).")

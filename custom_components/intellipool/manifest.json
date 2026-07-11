@@ -1,7 +1,7 @@
 {
   "domain": "intellipool",
   "name": "Pentair Intellipool",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "config_flow": true,
   "documentation": "https://github.com/beolink/ha-intellipool",
   "issue_tracker": "https://github.com/beolink/ha-intellipool/issues",
