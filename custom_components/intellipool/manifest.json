@@ -1,17 +1,17 @@
 {
   "domain": "intellipool",
   "name": "Pentair Intellipool",
-  "version": "1.10.0",
-  "config_flow": true,
-  "documentation": "https://github.com/beolink/ha-intellipool",
-  "issue_tracker": "https://github.com/beolink/ha-intellipool/issues",
-  "requirements": [],
-  "dependencies": [],
   "after_dependencies": [
     "recorder"
   ],
   "codeowners": [
     "@beolink"
   ],
-  "iot_class": "cloud_polling"
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/beolink/ha-intellipool",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/beolink/ha-intellipool/issues",
+  "requirements": [],
+  "version": "1.10.0"
 }
