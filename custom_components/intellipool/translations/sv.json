@@ -39,7 +39,7 @@
       },
       "official": {
         "title": "Officiellt API (domotique-piscine.eu)",
-        "description": "Ange installations-ID och API-nyckel. Båda finns i din REST-URL: /api/install/<INSTALLATIONS-ID>/probe/...?key=<API-NYCKEL>.",
+        "description": "Ange installations-ID och API-nyckel. Båda finns i din REST-URL, på formen /api/install/INSTALLATIONS-ID/probe/water-temp?key=API-NYCKEL",
         "data": {
           "install_id": "Installations-ID",
           "api_key": "API-nyckel"

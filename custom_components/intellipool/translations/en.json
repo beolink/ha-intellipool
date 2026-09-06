@@ -39,7 +39,7 @@
       },
       "official": {
         "title": "Official API (domotique-piscine.eu)",
-        "description": "Enter the installation ID and API key. You can find both in your REST URL: /api/install/<INSTALLATION-ID>/probe/...?key=<API-KEY>.",
+        "description": "Enter the installation ID and API key. Both appear in your REST URL, in the form /api/install/INSTALLATION-ID/probe/water-temp?key=API-KEY",
         "data": {
           "install_id": "Installation ID",
           "api_key": "API key"

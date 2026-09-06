@@ -7,6 +7,11 @@
   "issue_tracker": "https://github.com/beolink/ha-intellipool/issues",
   "requirements": [],
   "dependencies": [],
-  "codeowners": ["@beolink"],
+  "after_dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@beolink"
+  ],
   "iot_class": "cloud_polling"
 }
