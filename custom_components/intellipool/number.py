@@ -26,13 +26,13 @@ from .const import (
 from .coordinator import IntelliPoolCoordinator
 from .sensor import _device_info
 
-# IntelliFlo speed numbers: HA command key → (device field, display name).
+# IntelliFlo speed numbers: HA command key → (device field, translation key).
 INTELLIFLO_SPEEDS = (
-    ("speed_setpoint", "setpoint_intelliflo_speed", "Filtreringshastighet (börvärde)"),
-    ("speed_electrolysis", "electrolysis_filtration_speed", "Varvtal elektrolys"),
-    ("speed_heating", "heating_filtration_speed", "Varvtal uppvärmning"),
-    ("speed_aux1", "aux1_filtration_speed", "Varvtal Aux 1"),
-    ("speed_choc", "mode_choc_speed", "Varvtal chock"),
+    ("speed_setpoint", "setpoint_intelliflo_speed", "speed_setpoint"),
+    ("speed_electrolysis", "electrolysis_filtration_speed", "speed_electrolysis"),
+    ("speed_heating", "heating_filtration_speed", "speed_heating"),
+    ("speed_aux1", "aux1_filtration_speed", "speed_aux1"),
+    ("speed_choc", "mode_choc_speed", "speed_choc"),
 )
 
 
@@ -47,7 +47,7 @@ NUMBER_DESCRIPTIONS: tuple[IntelliPoolNumberDescription, ...] = (
         key="target_ph",
         data_key=KEY_TARGET_PH,
         command_key=KEY_TARGET_PH,
-        name="pH-börvärde",
+        translation_key="target_ph",
         icon="mdi:ph",
         native_min_value=6.8,
         native_max_value=7.8,
@@ -58,7 +58,7 @@ NUMBER_DESCRIPTIONS: tuple[IntelliPoolNumberDescription, ...] = (
         key="target_orp",
         data_key=KEY_TARGET_ORP,
         command_key=KEY_TARGET_ORP,
-        name="ORP-börvärde",
+        translation_key="target_orp",
         icon="mdi:lightning-bolt",
         native_unit_of_measurement=UnitOfElectricPotential.MILLIVOLT,
         native_min_value=200,
@@ -79,8 +79,8 @@ async def async_setup_entry(
         IntelliPoolNumber(coordinator, entry, desc) for desc in NUMBER_DESCRIPTIONS
     ]
     entities += [
-        IntelliPoolIntelliFloSpeed(coordinator, entry, key, field, name)
-        for key, field, name in INTELLIFLO_SPEEDS
+        IntelliPoolIntelliFloSpeed(coordinator, entry, key, field, tkey)
+        for key, field, tkey in INTELLIFLO_SPEEDS
     ]
     async_add_entities(entities)
 
@@ -129,12 +129,12 @@ class IntelliPoolIntelliFloSpeed(
         entry: ConfigEntry,
         command_key: str,
         device_field: str,
-        name: str,
+        translation_key: str,
     ) -> None:
         super().__init__(coordinator)
         self._command_key = command_key
         self._field = device_field
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{entry.entry_id}_{command_key}"
         self._attr_device_info = _device_info(entry)
 

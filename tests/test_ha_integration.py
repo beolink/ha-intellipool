@@ -45,7 +45,7 @@ async def test_data_flows_into_ha_entities(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ):
     aioclient_mock.get(
-        re.compile(r"https://api\.domotique-piscine\.eu/api/install/45558/probes"),
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
         json=PROBES_JSON,
     )
 
@@ -54,7 +54,7 @@ async def test_data_flows_into_ha_entities(
         title="Intellipool (official)",
         data={
             CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
-            CONF_INSTALL_ID: "45558",
+            CONF_INSTALL_ID: "12345",
             CONF_API_KEY: "test-key",
         },
     )

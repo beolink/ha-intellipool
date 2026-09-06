@@ -54,7 +54,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="water_temperature",
         data_key=KEY_WATER_TEMP,
-        name="Vattentemperatur",
+        translation_key="water_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -63,7 +63,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="air_temperature",
         data_key=KEY_AIR_TEMP,
-        name="Lufttemperatur",
+        translation_key="air_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -72,7 +72,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="ph",
         data_key=KEY_PH,
-        name="pH",
+        translation_key="ph",
         native_unit_of_measurement="pH",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:ph",
@@ -81,7 +81,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="orp",
         data_key=KEY_ORP,
-        name="ORP (Redox)",
+        translation_key="orp",
         native_unit_of_measurement=UnitOfElectricPotential.MILLIVOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -90,7 +90,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="salinity",
         data_key=KEY_SALINITY,
-        name="Salthalt",
+        translation_key="salinity",
         native_unit_of_measurement="g/L",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:water-percent",
@@ -99,7 +99,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="pump_speed",
         data_key=KEY_PUMP_SPEED,
-        name="Filtreringshastighet",
+        translation_key="pump_speed",
         native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:pump",
@@ -107,7 +107,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="pump_flow",
         data_key=KEY_PUMP_FLOW,
-        name="Pumpflöde",
+        translation_key="pump_flow",
         native_unit_of_measurement=UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:waves-arrow-right",
@@ -116,7 +116,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="pump_power",
         data_key=KEY_PUMP_POWER,
-        name="Pumpeffekt",
+        translation_key="pump_power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -125,7 +125,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="battery_voltage",
         data_key=KEY_BATTERY_VOLTAGE,
-        name="Sensorbatteri",
+        translation_key="battery_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -136,7 +136,7 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="signal_strength",
         data_key=KEY_SIGNAL_STRENGTH,
-        name="Radiosignal",
+        translation_key="signal_strength",
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS,
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
@@ -146,14 +146,14 @@ SENSOR_DESCRIPTIONS: tuple[IntelliPoolSensorDescription, ...] = (
     IntelliPoolSensorDescription(
         key="info_message",
         data_key=KEY_INFO_MESSAGE,
-        name="Statusmeddelande",
+        translation_key="info_message",
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:information-outline",
     ),
     IntelliPoolSensorDescription(
         key="data_source",
         data_key=KEY_DATA_SOURCE,
-        name="Datakälla",
+        translation_key="data_source",
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:database-sync",
     ),

@@ -2,69 +2,146 @@
   "config": {
     "step": {
       "connection_type": {
-        "title": "Intellipool – anslutningstyp",
-        "description": "Välj hur integrationen ska ansluta.\n\n• Moln (intellipool.eu) – flest värden, rekommenderat för INTP-1010B\n• Officiellt API (domotique-piscine.eu) – färre värden men stabilt\n• Lokalt – endast för enheter med öppen webbserver (ej INTP-1010B)",
+        "title": "Intellipool – connection type",
+        "description": "Choose how to connect.\n\n• Cloud (intellipool.eu) – the most values, recommended for the INTP-1010B\n• Official API (domotique-piscine.eu) – fewer values but very reliable\n• Local – only for devices that run their own web server (not the INTP-1010B)",
         "data": {
-          "connection_type": "Anslutningstyp"
+          "connection_type": "Connection type"
         }
       },
       "scan": {
-        "title": "Nätverkssökning",
-        "description": "Hittade {count} möjlig(a) enhet(er) på nätverket. Välj din Intellipool eller ange IP manuellt.",
+        "title": "Network scan",
+        "description": "Found {count} candidate device(s) on the network. Pick your Intellipool or enter the IP address manually.",
         "data": {
-          "discovered_host": "Enhet"
+          "discovered_host": "Device"
         }
       },
       "local": {
-        "title": "Lokal anslutning",
-        "description": "Ange IP-adressen till din Intellipool INTP-1010B. Integrationen probar API-endpoints automatiskt.",
+        "title": "Local connection",
+        "description": "Enter the IP address of your controller. The integration probes common API endpoints automatically.",
         "data": {
-          "host": "IP-adress",
-          "port": "Port (standard: 80)",
-          "ssl": "Använd HTTPS",
-          "username": "Användarnamn (om krävs)",
-          "password": "Lösenord (om krävs)"
+          "host": "IP address",
+          "port": "Port (default: 80)",
+          "ssl": "Use HTTPS",
+          "username": "Username (if required)",
+          "password": "Password (if required)"
         }
       },
       "cloud": {
-        "title": "Molnanslutning (intellipool.eu)",
-        "description": "Använd dina inloggningsuppgifter för intellipool.eu. Fälten för officiellt API är valfria och aktiverar failsafe – om skrapningen slutar uppdatera hämtas data från det officiella API:et istället.",
+        "title": "Cloud connection (intellipool.eu)",
+        "description": "Use your intellipool.eu credentials. The official-API fields are optional and enable the failsafe: if the cloud scrape stops updating, data is fetched from the official API instead.",
         "data": {
-          "username": "E-postadress",
-          "password": "Lösenord",
-          "pool_id": "Pool-serienummer (lämna tomt för auto-identifiering)",
-          "install_id": "Failsafe: Installations-ID (valfritt)",
-          "api_key": "Failsafe: API-nyckel (valfritt)"
+          "username": "Email address",
+          "password": "Password",
+          "pool_id": "Pool serial (leave blank to auto-detect)",
+          "install_id": "Failsafe: installation ID (optional)",
+          "api_key": "Failsafe: API key (optional)"
         }
       },
       "official": {
-        "title": "Officiellt API (domotique-piscine.eu)",
-        "description": "Ange installations-ID och API-nyckel. Dessa hittar du i din REST-URL: /api/install/<installations-ID>/probe/...?key=<API-nyckel>.",
+        "title": "Official API (domotique-piscine.eu)",
+        "description": "Enter the installation ID and API key. You can find both in your REST URL: /api/install/<INSTALLATION-ID>/probe/...?key=<API-KEY>.",
         "data": {
-          "install_id": "Installations-ID",
-          "api_key": "API-nyckel"
+          "install_id": "Installation ID",
+          "api_key": "API key"
         }
       }
     },
     "error": {
-      "cannot_connect": "Kunde inte ansluta. Kontrollera IP-adress och nätverk.",
-      "invalid_auth": "Felaktiga inloggningsuppgifter.",
-      "endpoint_not_found": "Inget lokalt API hittades. Se README för protokoll-discovery.",
-      "no_serial": "Inloggning OK men poolens serienummer kunde inte hittas automatiskt. Ange det manuellt (siffran i displaySummary('...') på intellipool.eu).",
-      "bad_failsafe": "Failsafe: API-nyckeln eller installations-ID:t är fel. Lämna båda tomma om du inte vill ha failsafe.",
-      "unknown": "Oväntat fel. Kontrollera loggarna."
+      "cannot_connect": "Could not connect. Check the address and your network.",
+      "invalid_auth": "Invalid credentials.",
+      "endpoint_not_found": "No local API found on that device. See the README for protocol discovery.",
+      "no_serial": "Login succeeded but the pool serial could not be detected automatically. Enter it manually (the number in displaySummary('...') on intellipool.eu).",
+      "bad_failsafe": "Failsafe: the API key or installation ID is wrong. Leave both blank if you don't want a failsafe.",
+      "unknown": "Unexpected error. Check the logs for details."
     },
     "abort": {
-      "already_configured": "Intellipool är redan konfigurerad."
+      "already_configured": "This Intellipool is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Intellipool-inställningar",
+        "title": "Intellipool options",
         "data": {
-          "scan_interval": "Uppdateringsintervall (sekunder)",
-          "stale_minutes": "Failsafe: växla till officiellt API efter (minuter utan uppdatering)"
+          "scan_interval": "Update interval (seconds)",
+          "stale_minutes": "Failsafe: switch to the official API after (minutes without an update)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "water_temperature": { "name": "Water temperature" },
+      "air_temperature": { "name": "Air temperature" },
+      "ph": { "name": "pH" },
+      "orp": { "name": "ORP (redox)" },
+      "salinity": { "name": "Salinity" },
+      "pump_speed": { "name": "Filtration speed" },
+      "pump_flow": { "name": "Pump flow" },
+      "pump_power": { "name": "Pump power" },
+      "battery_voltage": { "name": "Sensor battery" },
+      "signal_strength": { "name": "Radio signal" },
+      "info_message": { "name": "Status message" },
+      "data_source": { "name": "Data source" }
+    },
+    "switch": {
+      "pump": { "name": "Pump" },
+      "filtration": { "name": "Filtration" },
+      "heating": { "name": "Heating" },
+      "light": { "name": "Lighting" },
+      "chlorinator": { "name": "Chlorination" },
+      "ph_dosing": { "name": "pH dosing" },
+      "orp_dosing": { "name": "ORP dosing" },
+      "aux_1": { "name": "Aux 1" },
+      "aux_2": { "name": "Aux 2" },
+      "aux_3": { "name": "Aux 3" }
+    },
+    "number": {
+      "target_ph": { "name": "pH setpoint" },
+      "target_orp": { "name": "ORP setpoint" },
+      "speed_setpoint": { "name": "Filtration speed setpoint" },
+      "speed_electrolysis": { "name": "Electrolysis speed" },
+      "speed_heating": { "name": "Heating speed" },
+      "speed_aux1": { "name": "Aux 1 speed" },
+      "speed_choc": { "name": "Boost speed" }
+    },
+    "select": {
+      "filtration_mode": {
+        "name": "Filtration mode",
+        "state": {
+          "auto": "Auto",
+          "on": "On",
+          "off": "Off",
+          "timer": "Timer",
+          "boost": "Boost"
+        }
+      },
+      "lighting_mode": {
+        "name": "Lighting mode",
+        "state": {
+          "on": "On",
+          "timer": "Timer",
+          "off": "Off"
+        }
+      }
+    },
+    "text": {
+      "schedule_filtration": { "name": "Filtration schedule" },
+      "schedule_lighting": { "name": "Lighting schedule" },
+      "schedule_aux1": { "name": "Aux 1 schedule" }
+    },
+    "climate": {
+      "pool_heating": { "name": "Pool heating" }
+    }
+  },
+  "services": {
+    "import_history": {
+      "name": "Import history",
+      "description": "Backfills Home Assistant long-term statistics with hourly historic values from intellipool.eu (water/air temperature, pH, ORP, salinity, pump power and speed, sensor battery, radio signal). Requires the cloud connection.",
+      "fields": {
+        "days": {
+          "name": "Days",
+          "description": "How many days back to import."
         }
       }
     }

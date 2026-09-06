@@ -38,7 +38,7 @@ class IntelliPoolClimate(CoordinatorEntity[IntelliPoolCoordinator], ClimateEntit
     """Climate entity representing the pool heater."""
 
     _attr_has_entity_name = True
-    _attr_name = "Poolvärmning"
+    _attr_translation_key = "pool_heating"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_TENTHS
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]

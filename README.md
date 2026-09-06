@@ -1,240 +1,193 @@
-# Home Assistant – Pentair Intellipool integration
+# Pentair Intellipool for Home Assistant
 
-Custom integration för **Pentair Intellipool INTP-1010B** (och kompatibla modeller).
+[![hacs][hacs-badge]][hacs-url]
+[![release][release-badge]][release-url]
 
-Stöder:
-- **Lokal anslutning** direkt mot controllerns IP på hemmanätverket *(rekommenderat)*
-- **Molnanslutning** via [intellipool.eu](https://www.intellipool.eu) som fallback
+Home Assistant integration for **Pentair Intellipool** pool controllers
+(developed and verified against the **INTP-1010B**).
+
+Monitor water temperature, pH, ORP, salinity and pump metrics — and control
+filtration, heating, lighting, dosing, IntelliFlo pump speeds, setpoints and
+schedules. Historic values can be backfilled into Home Assistant's long-term
+statistics.
+
+> **Unofficial.** Not affiliated with, endorsed by, or supported by Pentair.
+> Intellipool exposes no public API, so this integration talks to the same
+> endpoints the official web app uses. Those are undocumented and may change
+> without notice.
 
 ---
 
-## Entiteter
+## Entities
 
-| Plattform | Entitet | Beskrivning |
+| Platform | Entity | Notes |
 |---|---|---|
-| `sensor` | Vattentemperatur | °C |
-| `sensor` | Lufttemperatur | °C |
-| `sensor` | pH | pH-värde |
-| `sensor` | ORP / Redox | mV |
-| `sensor` | Salthalt (konduktivitet) | g/L |
-| `sensor` | Filtreringshastighet | rpm |
-| `sensor` | Pumpflöde | m³/h |
-| `sensor` | Pumpeffekt | W |
-| `sensor` | Sensorbatteri (diagnostik) | V |
-| `sensor` | Radiosignal (diagnostik) | dB |
-| `sensor` | Statusmeddelande (diagnostik) | text |
-| `sensor` | Datakälla (diagnostik) | primary/fallback |
-| `switch` | Pump | På/av |
-| `switch` | Filtrering | På/av |
-| `switch` | Uppvärmning | På/av |
-| `switch` | Belysning | På/av |
-| `switch` | Elektrolys/Klorering | På/av |
-| `switch` | pH-dosering | På/av |
-| `switch` | ORP-dosering | På/av |
-| `switch` | Extra 1–3 (AUX) | Auxiliära utgångar |
-| `select` | Filtreringsläge | Auto/På/Av/Timer/Chock |
-| `select` | Belysningsläge | På/Timer/Av |
-| `climate` | Poolvärmning | HVAC-entitet med temperaturmål |
-| `number` | pH-börvärde | 6.8–7.8 |
-| `number` | ORP-börvärde | 200–800 mV |
-| `number` | IntelliFlo-varvtal (setpoint/elektrolys/värme/aux1/chock) | rpm, 20-steg |
-| `text` | Filtrerings-/belysnings-/aux-schema | 24-tecken (en/timme, 0/1) |
+| `sensor` | Water temperature | °C |
+| `sensor` | Air temperature | °C |
+| `sensor` | pH | |
+| `sensor` | ORP (redox) | mV |
+| `sensor` | Salinity (conductivity) | g/L |
+| `sensor` | Filtration speed | rpm |
+| `sensor` | Pump flow | m³/h |
+| `sensor` | Pump power | W |
+| `sensor` | Sensor battery | V, diagnostic |
+| `sensor` | Radio signal | dB, diagnostic |
+| `sensor` | Status message | diagnostic |
+| `sensor` | Data source | `primary` / `fallback`, diagnostic |
+| `switch` | Pump, Filtration, Heating, Lighting | on/off |
+| `switch` | Chlorination, pH dosing, ORP dosing | on/off |
+| `switch` | Aux 1–3 | auxiliary outputs |
+| `select` | Filtration mode | Auto / On / Off / Timer / Boost |
+| `select` | Lighting mode | On / Timer / Off |
+| `climate` | Pool heating | target temperature |
+| `number` | pH setpoint | 6.8–7.8 |
+| `number` | ORP setpoint | 200–800 mV |
+| `number` | IntelliFlo speeds | setpoint / electrolysis / heating / aux 1 / boost, rpm in steps of 20 |
+| `text` | Filtration / lighting / aux 1 schedule | 24 characters, one digit per hour (`0`/`1`) |
+
+Entity names are translated; English and Swedish are included.
 
 ---
 
 ## Installation
 
-### Via HACS (rekommenderat)
-1. Lägg till detta repo som custom repository i HACS
-2. Sök efter "Intellipool" och installera
-3. Starta om Home Assistant
+### HACS (recommended)
 
-### Manuell installation
+1. HACS → ⋮ → **Custom repositories**
+2. Repository: `https://github.com/beolink/ha-intellipool`, category **Integration**
+3. Find **Pentair Intellipool** in HACS and download it
+4. Restart Home Assistant
+5. **Settings → Devices & Services → Add Integration → Intellipool**
+
+### Manual
+
 ```bash
 cp -r custom_components/intellipool /config/custom_components/
 ```
-Starta om Home Assistant, gå sedan till **Inställningar → Enheter & tjänster → Lägg till integration → Intellipool**.
+
+Restart Home Assistant, then add the integration as above.
 
 ---
 
-## Konfiguration
+## Configuration
 
-### ⚠️ Viktigt om INTP-1010B och lokal anslutning
+### Connection types
 
-**INTP-1010B kör ingen lokal server.** Detta är verifierat empiriskt (juli 2026) mot
-en riktig enhet på `10.0.11.44`:
-
-| Test | Resultat |
-|---|---|
-| ARP (lager 2) | ✅ Enheten svarar — MAC `00:0B:3C` (Cygnal / Silicon Labs, egen inbäddad modul) |
-| ICMP ping | ❌ Blockeras |
-| **Alla 65535 TCP-portar** | ❌ **Inga öppna** — alla anslutningar tyst-droppas |
-| UDP mDNS / SSDP / beacons | ❌ Enheten annonserar/sänder ingenting |
-
-Enheten gör **enbart utgående** anslutningar till `intellipool.eu`. Det finns alltså
-ingen lokal IP-port att ansluta till — direkt lokal integration är **inte möjlig** på
-den här hårdvaran. (Samma gäller europeiska Hayward/Bayrol — alla är molnbaserade.)
-
-Den lokala anslutningstypen i pluginen finns kvar för andra/framtida modeller (t.ex.
-enheter med öppen webbserver) och för avancerad proxy-uppsättning (se längst ned).
-
-**➡️ För INTP-1010B: använd molnanslutning.**
-
-### Tre anslutningssätt
-
-| Typ | Källa | Värden | Not |
+| Type | Source | Values | Notes |
 |---|---|---|---|
-| **Moln** *(rek.)* | intellipool.eu (skrapning) | Flest (alla sensorer + börvärden) | Login + serienummer |
-| **Officiellt API** | api.domotique-piscine.eu | Färre (temp, pH, ORP, salt, flaggor) | Nyckelbaserat, stabilt |
-| **Lokalt** | Enhetens IP | — | Ej INTP-1010B (ingen lokal server) |
+| **Cloud** *(recommended)* | intellipool.eu (web app) | All sensors, controls and setpoints | Needs your intellipool.eu login |
+| **Official API** | api.domotique-piscine.eu | Fewer (temperatures, pH, ORP, salinity, flags) | Key-based, read-only, very reliable |
+| **Local** | Device IP | — | Not usable on the INTP-1010B, see below |
 
-### Molnanslutning (rekommenderat för INTP-1010B)
+### ⚠️ The INTP-1010B has no local server
 
-1. Välj **Molnanslutning** i config-flödet
-2. Ange din e-postadress och lösenord för intellipool.eu
-3. Pool-serienummer identifieras automatiskt (eller ange manuellt)
-4. *(Valfritt)* Ange **installations-ID + API-nyckel** för att aktivera failsafe (se nedan)
+Verified empirically against a real device:
 
-> **Status:** Login **och sensordata fungerar** (verifierat mot riktig INTP-1010B).
-> Kvar att fånga är endast **styr-kommandona** (pump/värme/ljus) — se nedan.
+| Test | Result |
+|---|---|
+| ARP (layer 2) | ✅ Device responds — MAC OUI `00:0B:3C` (Cygnal / Silicon Labs) |
+| ICMP ping | ❌ Blocked |
+| **All 65535 TCP ports** | ❌ **None open** — every connection silently dropped |
+| UDP mDNS / SSDP / discovery beacons | ❌ Device announces nothing |
 
-### Officiellt API (domotique-piscine.eu)
+The controller only makes **outbound** connections to `intellipool.eu`. There is
+no local port to connect to, so local polling is impossible on this hardware —
+the same is true of most European pool controllers (Hayward, Bayrol).
 
-Ett rent, nyckelbaserat REST-API (tjänsten bakom intellipool.eu). Färre värden än
-skrapningen men mycket stabilt. Ditt REST-URL avslöjar båda uppgifterna:
+The local connection type is kept for other or future models that do run a web
+server. **For the INTP-1010B, use the cloud connection.**
+
+### Cloud connection
+
+1. Pick **Cloud connection**
+2. Enter your intellipool.eu email and password
+3. The pool serial is detected automatically, or you can enter it manually
+4. *(Optional)* Enter an **installation ID + API key** to enable the failsafe
+
+> **Note on the pool serial:** the number shown as `N°…` in the web app is the
+> *display* serial. The API uses a different *raw* serial. The integration
+> detects the raw one; if you enter it by hand, use the number from
+> `displaySummary('…')` in the pool list page source — not the `N°` number.
+
+### Official API
+
+A clean, key-based REST API (the service behind intellipool.eu). Read-only and
+fewer values, but very reliable. Both values are in your REST URL:
 
 ```
-https://api.domotique-piscine.eu/api/install/<INSTALL-ID>/probe/water-temp?key=<API-NYCKEL>
+https://api.domotique-piscine.eu/api/install/<INSTALL-ID>/probe/water-temp?key=<API-KEY>
 ```
 
-- Välj **Officiellt API** i config-flödet och ange installations-ID + API-nyckel
-- Integrationen använder bulk-endpointen `/api/install/<id>/probes?key=<nyckel>`
-  (ett anrop → alla värden)
+The integration uses the bulk endpoint `/api/install/<id>/probes?key=<key>`
+(one request returns every value).
 
-Stödda värden: vattentemperatur, lufttemperatur, pH, ORP, konduktivitet (salt),
-samt flaggor för filtrering, uppvärmning, belysning och AUX.
+### Failsafe (cloud + official API)
 
-### Failsafe (moln + officiellt API)
+Run the cloud connection as the primary source **with the official API as a
+backup**: enter the installation ID and API key in the cloud step.
 
-Du kan köra molnskrapningen som primär källa **med det officiella API:et som reserv**.
-Ange install-ID + API-nyckel i molnsteget. Då gäller:
-
-- Normalt används molnskrapningen (flest värden)
-- Om skrapningen **slutar svara** eller dess tidsstämpel **slutar uppdateras** i
-  mer än X minuter (standard 30, ställbart i inställningarna), växlar integrationen
-  automatiskt till det officiella API:et
-- Värden som bara skrapningen har (pumphastighet, effekt, börvärden, batteri) behålls
-  från senaste lyckade hämtning så entiteterna inte blir otillgängliga
-- Diagnostiksensorn **Datakälla** visar `primary` eller `fallback` så du ser när
-  reserven är aktiv
-
-### Vad som är bekräftat och inbyggt
-
-`intellipool.eu` är en äldre **PHP-app bakom nginx** (jQuery 1.7.2 + w2ui), `PHPSESSID`-session.
-
-| Del | Status | Detalj |
-|---|---|---|
-| Login | ✅ Bekräftat | `POST /pool/poolLogin/login`, fält `login` + `pass` (klartext/TLS) |
-| Serienummer | ✅ Auto | Extraheras från `displaySummary('<serial>')` på landningssidan |
-| **Sensordata** | ✅ Bekräftat | `POST /pool/poolSummary` med `serial=<n>` → **HTML** som parsas till alla mätvärden |
-| **Styrning** | ✅ Live-verifierat | `POST /pool/ajaxCommands/save` (pump, ljus, värme, pH, ORP, aux) |
-| **Börvärden** | ✅ Byte-validerat | `POST /pool/ajaxSetpoints/save` (mål-temp, pH, ORP) |
-
-Datasvaret är **HTML** (inte JSON) — parsas i `_map_cloud_response()` i
-[`api.py`](custom_components/intellipool/api.py).
+- Normally the cloud source is used (it has the most values)
+- If it **errors** or its timestamp **stops advancing** for more than N minutes
+  (default 30, configurable), the integration switches to the official API
+- Values only the cloud source provides (pump speed/power, setpoints, battery)
+  are carried over from the last good update so those entities stay available
+- The **Data source** diagnostic sensor shows `primary` or `fallback`
 
 ---
 
-## Styrning & börvärden (bekräftat)
+## History import
 
-Styrningen upptäcktes genom att inspektera appens JavaScript i en inloggad session
-och är **live-verifierad** mot en riktig INTP-1010B (2026-07-11).
+The **`intellipool.import_history`** service backfills Home Assistant's
+long-term statistics with hourly historic values, so older history shows up on
+the existing sensor graphs.
 
-### Controls — `POST /pool/ajaxCommands/save`
-Läs nuvarande läge med `GET /pool/ajaxCommands/get`, ändra ett fält, posta hela.
-Svar vid lyckat: `<status>Command was sent</status>`.
-
-| HA-entitet | Fält | Värden |
-|---|---|---|
-| Pump | `filtration` | 0=Auto, 1=På, 2=Av, 3=Timer, 4=Chock |
-| Belysning | `lighting` | 0=På, 1=Timer, 2=Av |
-| Uppvärmning | `heating_regulation` | 0=Auto, 1=Av |
-| pH-dosering | `ph_regulation` | 0=Auto, 1=Av |
-| ORP-dosering | `orp_regulation` | 0=Auto, 1=Av |
-| Aux 1 | `aux1` (`aux1_3p`/`aux1_2p`) | 0=På, 1=Schema, 2=Av |
-
-### Setpoints — `POST /pool/ajaxSetpoints/save`
-Läs med `GET /pool/ajaxSetpoints/get`, bygg om hela formuläret (33 fält i exakt
-ordning) och ändra bara målfältet. Kroppen byggs av `build_setpoint_body()` och är
-**byte-identisk** med appens egen `form.serialize()` — verifierat i
-[`tests/test_write_paths.py`](tests/test_write_paths.py), så bara det ändrade
-börvärdet skiljer sig från vad appen själv skickar.
-
-- `setpoint_heating` (mål-vattentemperatur), `setpoint_ph`, `setpoint_orp`
-
-Efter varje `/save` pollar appen `/pool/ajaxOmeoGetCurrentsOrder` tills enheten
-bekräftat ordern (`<order current="true" failed="false"/>`) — den asynkrona
-"väntar på enheten"-mekanismen, eftersom enheten bara når molnet utgående.
-
-> **Säkerhet:** styr-anropen ändrar din riktiga utrustning. Pluginen läser alltid
-> aktuellt tillstånd först och ändrar bara det efterfrågade fältet, så inga andra
-> inställningar rörs. Belysningsstyrningen är live-testad; börvärdes-kroppen är
-> byte-validerad mot appen.
-
-### Roadmap
-
-Kartlagt (endpoints/fixtures finns) men inte inbyggt än, i ungefärlig prioritetsordning:
-
-- [x] **Verifiera i skarp HA** — integrationen laddas i riktig HA (2026.2) och data flödar
-  in i entiteterna; verifierat i [`tests/test_ha_integration.py`](tests/test_ha_integration.py)
-- [x] **Filtration/belysning som `select`** (Auto/På/Av/Timer/Chock) utöver på/av-switcharna
-- [x] **IntelliFlo pumpvarvtal** — `/pool/ajaxIntelliFlo/get|save` som `number`-entiteter
-  (setpoint/elektrolys/värme/aux1/chock), byte-validerad skrivning, 20-rpm-steg
-- [x] **Schemastyrning** — `timer_filtration` / `timer_lighting` / `timer_aux1` som `text`-entiteter (24-tecken/tim)
-- [ ] **Kvalitetspolish** — hassfest/HACS-CI grönt, robustare session-återinloggning,
-  fler tester, quality scale
-- [x] **Historik-import** — tjänsten `intellipool.import_history` bakåtfyller HA:s
-  långtidsstatistik med timvärden från
-  `/pool/ajaxHistoric/getJsonValues` (se avsnittet "Historik-import" nedan)
+- **Developer tools → Actions → `Intellipool: Import history`**, with `days`
+  (how many days back, default 7)
+- Fetches one day at a time at hourly resolution and writes `mean`/`min`/`max`
+  per hour straight onto the sensor (`source: recorder`)
+- Requires the **cloud connection**. Imported series: water and air temperature,
+  pH, ORP, salinity, pump power and speed, sensor battery, radio signal
+- Idempotent — re-importing an hour just rewrites the same value
 
 ---
 
-## Historik-import
+## How it works
 
-Tjänsten **`intellipool.import_history`** bakåtfyller Home Assistants
-långtidsstatistik med timvärden så att äldre historik dyker upp på de befintliga
-sensorernas grafer.
+`intellipool.eu` is an older PHP app behind nginx (jQuery + w2ui) using a
+`PHPSESSID` session. Everything below was found by inspecting the web app and
+verified against a real controller.
 
-- Anropas från **Utvecklarverktyg → Åtgärder → `Intellipool: Importera historik`**
-  (eller i en automation), med argumentet `days` (antal dygn bakåt, standard 7)
-- Hämtar `GET /pool/ajaxHistoric/getJsonValues?serial=&date=&type_date=DAY` per dygn
-  (timupplösning) och skriver `mean/min/max` per timme till statistiken
-  (`source: recorder`, dvs. direkt på sensorn)
-- Kräver **molnanslutning** (sessionsbaserat). Importerade serier: vattentemp,
-  lufttemp, pH, ORP, salt, pumpeffekt, pumpvarvtal, sensorbatteri, radiosignal
-- Idempotent: en redan importerad timme skrivs bara över med samma värde
+| Part | Endpoint |
+|---|---|
+| Login | `POST /pool/poolLogin/login` (`login` + `pass`) |
+| Sensor data | `POST /pool/poolSummary` (`serial=`) → **HTML**, parsed |
+| Controls | `GET`/`POST /pool/ajaxCommands/get`\|`/save` |
+| Setpoints | `GET`/`POST /pool/ajaxSetpoints/get`\|`/save` |
+| IntelliFlo | `POST /pool/ajaxIntelliFlo/get`\|`/save` |
+| History | `GET /pool/ajaxHistoric/getJsonValues` (`type_date=DAY\|MONTH\|YEAR`) |
+| Order ack | `GET /pool/ajaxOmeoGetCurrentsOrder` |
 
-Verifierat i [`tests/test_history_import.py`](tests/test_history_import.py).
+Control values:
 
-### Avancerat: äkta lokal styrning via trafik-proxy
+| Field | Values |
+|---|---|
+| `filtration` | 0 = Auto, 1 = On, 2 = Off, 3 = Timer, 4 = Boost |
+| `lighting` | 0 = On, 1 = Timer, 2 = Off |
+| `heating_regulation`, `ph_regulation`, `orp_regulation` | 0 = Auto, 1 = Off |
+| `aux1` | 0 = On, 1 = Schedule, 2 = Off |
 
-Vill du ändå ha *lokal* kontroll trots molnberoendet kan du tvinga enhetens
-utgående trafik genom en maskin du styr:
-
-1. Peka enhetens DNS för `intellipool.eu` mot din egen server (via router/Pi-hole)
-2. Kör [mitmproxy](https://mitmproxy.org/) för att se/omdirigera dess HTTPS-anrop
-3. Bygg en lokal tjänst som svarar/vidarebefordrar
-
-Detta är avsevärt mer avancerat (enheten kan cert-pinna, och det är skört vid
-firmware-uppdateringar). För de flesta är molnvägen den praktiska lösningen.
+**Writes are conservative.** The integration always reads the current state
+first and changes only the requested field, then submits the complete form —
+byte-identical to what the web app itself sends (verified in
+[`tests/test_write_paths.py`](tests/test_write_paths.py)). Nothing else is
+touched. Because the controller only reaches the cloud outbound, a change
+becomes a queued *order* that the device applies on its next check-in.
 
 ---
 
-## Felsökning
+## Troubleshooting
 
-### Aktivera debug-loggning
-
-Lägg till i `configuration.yaml`:
+### Debug logging
 
 ```yaml
 logger:
@@ -243,54 +196,81 @@ logger:
     custom_components.intellipool: debug
 ```
 
-### Vanliga fel
+### Common errors
 
-| Fel | Orsak | Lösning |
+| Error | Cause | Fix |
 |---|---|---|
-| `endpoint_not_found` | Enheten har ingen lokal server (gäller INTP-1010B) | Använd molnanslutning istället |
-| `cannot_connect` | Enheten/molnet är inte nåbart | Kontrollera IP resp. internet |
-| `invalid_auth` | Fel lösenord | Kontrollera uppgifterna |
+| `endpoint_not_found` | The device has no local server (INTP-1010B) | Use the cloud connection |
+| `cannot_connect` | Device or cloud unreachable | Check network / internet |
+| `invalid_auth` | Wrong credentials | Re-check email and password |
+| `no_serial` | Serial could not be auto-detected | Enter the raw serial manually (see note above) |
+| Sensors exist but have no values | Wrong pool serial — the scrape returns an empty page | Re-add with the raw serial |
 
-### Visa rådata
-
-I HA-loggarna (med debug aktiverat) syns alla råsvar under nycklarna
-`Intellipool local raw data:` respektive `Intellipool cloud raw data:`.
-Kopiera detta och lägg upp i ett GitHub-issue så kan vi lägga till stöd
-för ditt specifika dataformat.
+With debug logging on, raw responses are logged so you can attach them to an
+issue if your device returns a different format.
 
 ---
 
-## Arkitektur
+## Development
+
+```bash
+# Pure logic tests — no dependencies
+python3 tests/test_summary_parser.py
+python3 tests/test_official_parser.py
+python3 tests/test_write_paths.py
+
+# Full Home Assistant pipeline tests
+python3.13 -m venv .venv && .venv/bin/pip install -r requirements-test.txt
+.venv/bin/pytest tests/test_ha_integration.py tests/test_history_import.py -v
+```
+
+The write paths are validated byte-for-byte against captured ground truth from
+the real web app, so control and setpoint requests can be changed safely without
+touching live equipment.
+
+### Layout
 
 ```
 custom_components/intellipool/
-├── __init__.py          ← Integration setup och entry lifecycle
-├── manifest.json        ← HA integration manifest
-├── config_flow.py       ← UI config flow (lokal / moln)
-├── coordinator.py       ← DataUpdateCoordinator (polling var 30s)
-├── discovery.py         ← Aktiv nätverkssökning (subnät + hostnamn + fingerprint)
-├── api.py               ← API-klient (IntelliPoolLocalAPI / CloudAPI)
-├── const.py             ← Konstanter och nyckelnamn
-├── sensor.py            ← Mätvärden (temp, pH, ORP, pump...)
-├── switch.py            ← Styrning (pump, värme, ljus, AUX...)
-├── climate.py           ← Poolvärmning som climate-entitet
-├── number.py            ← Börvärden (pH, ORP)
-└── translations/
-    ├── sv.json          ← Svenska UI-texter
-    └── en.json          ← Engelska UI-texter
+├── __init__.py        Setup, entry lifecycle, import_history service
+├── api.py             API clients (cloud / official / local) + parsers
+├── coordinator.py     DataUpdateCoordinator with failsafe
+├── config_flow.py     UI configuration
+├── const.py           Constants, field maps, form specs
+├── discovery.py       Active network scan (local mode)
+├── history.py         Long-term statistics backfill
+├── sensor.py  switch.py  climate.py  number.py  select.py  text.py
+├── services.yaml      Service definitions
+├── strings.json       Base strings (English)
+└── translations/      en, sv
 ```
 
 ---
 
-## Bidra
+## Roadmap
 
-Pull requests välkomnas! Speciellt:
-- Verifierade API-endpoints för INTP-1010B
-- Stöd för E-Box och Intellipool Lite
-- Tester
+- [x] Cloud sensors with official-API failsafe
+- [x] Controls, setpoints, mode selects and schedules
+- [x] IntelliFlo variable-speed pump control
+- [x] History import into long-term statistics
+- [x] Verified in a real Home Assistant instance
+- [ ] More reliable raw-serial auto-detection during setup
+- [ ] Treat an empty cloud response as a failure so the failsafe takes over
+- [ ] Support for E-Box and Intellipool Lite
 
 ---
 
-## Licens
+## Contributing
+
+Pull requests are welcome — especially verified endpoints for other Intellipool
+models, additional translations, and tests. If your controller returns a
+different data format, open an issue with the raw response from debug logs.
+
+## License
 
 MIT
+
+[hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs-url]: https://github.com/hacs/integration
+[release-badge]: https://img.shields.io/github/v/release/beolink/ha-intellipool
+[release-url]: https://github.com/beolink/ha-intellipool/releases

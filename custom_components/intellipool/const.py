@@ -225,10 +225,18 @@ SETPOINT_FIELD_MAP = {
     KEY_TARGET_ORP: "setpoint_orp",
 }
 
-# Select entities: full mode selectors (value → label), written as raw control
-# values via /pool/ajaxCommands/save. Current mode is read from command_state.
-FILTRATION_MODES = {"0": "Auto", "1": "På", "2": "Av", "3": "Timer", "4": "Chock"}
-LIGHTING_MODES = {"0": "På", "1": "Timer", "2": "Av"}
+# Select entities: full mode selectors (device value → stable option key).
+# The keys are translated via strings.json (entity.select.<key>.state).
+# Written as raw control values via /pool/ajaxCommands/save; the current mode
+# is read from command_state.
+FILTRATION_MODES = {
+    "0": "auto",
+    "1": "on",
+    "2": "off",
+    "3": "timer",
+    "4": "boost",
+}
+LIGHTING_MODES = {"0": "on", "1": "timer", "2": "off"}
 
 # HA select command key → (device field, value→label map)
 RAW_CONTROL_MAP = {

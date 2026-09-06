@@ -3,43 +3,43 @@
     "step": {
       "connection_type": {
         "title": "Intellipool – anslutningstyp",
-        "description": "Välj hur integrationen ska ansluta.\n\n• Moln (intellipool.eu) – flest värden, rekommenderat för INTP-1010B\n• Officiellt API (domotique-piscine.eu) – färre värden men stabilt\n• Lokalt – endast för enheter med öppen webbserver (ej INTP-1010B)",
+        "description": "Välj hur integrationen ansluter.\n\n• Moln (intellipool.eu) – flest värden, rekommenderat för INTP-1010B\n• Officiellt API (domotique-piscine.eu) – färre värden men mycket stabilt\n• Lokalt – endast för enheter med egen webbserver (ej INTP-1010B)",
         "data": {
           "connection_type": "Anslutningstyp"
         }
       },
       "scan": {
         "title": "Nätverkssökning",
-        "description": "Hittade {count} möjlig(a) enhet(er) på nätverket. Välj din Intellipool eller ange IP manuellt.",
+        "description": "Hittade {count} möjlig(a) enhet(er) på nätverket. Välj din Intellipool eller ange IP-adressen manuellt.",
         "data": {
           "discovered_host": "Enhet"
         }
       },
       "local": {
         "title": "Lokal anslutning",
-        "description": "Ange IP-adressen till din Intellipool INTP-1010B. Integrationen probar API-endpoints automatiskt.",
+        "description": "Ange styrenhetens IP-adress. Integrationen probar vanliga API-endpoints automatiskt.",
         "data": {
           "host": "IP-adress",
           "port": "Port (standard: 80)",
           "ssl": "Använd HTTPS",
-          "username": "Användarnamn (om krävs)",
-          "password": "Lösenord (om krävs)"
+          "username": "Användarnamn (om det krävs)",
+          "password": "Lösenord (om det krävs)"
         }
       },
       "cloud": {
         "title": "Molnanslutning (intellipool.eu)",
-        "description": "Använd dina inloggningsuppgifter för intellipool.eu. Fälten för officiellt API är valfria och aktiverar failsafe – om skrapningen slutar uppdatera hämtas data från det officiella API:et istället.",
+        "description": "Använd dina inloggningsuppgifter för intellipool.eu. Fälten för officiellt API är valfria och aktiverar failsafe: om skrapningen slutar uppdatera hämtas data från det officiella API:et istället.",
         "data": {
           "username": "E-postadress",
           "password": "Lösenord",
           "pool_id": "Pool-serienummer (lämna tomt för auto-identifiering)",
-          "install_id": "Failsafe: Installations-ID (valfritt)",
+          "install_id": "Failsafe: installations-ID (valfritt)",
           "api_key": "Failsafe: API-nyckel (valfritt)"
         }
       },
       "official": {
         "title": "Officiellt API (domotique-piscine.eu)",
-        "description": "Ange installations-ID och API-nyckel. Dessa hittar du i din REST-URL: /api/install/<installations-ID>/probe/...?key=<API-nyckel>.",
+        "description": "Ange installations-ID och API-nyckel. Båda finns i din REST-URL: /api/install/<INSTALLATIONS-ID>/probe/...?key=<API-NYCKEL>.",
         "data": {
           "install_id": "Installations-ID",
           "api_key": "API-nyckel"
@@ -47,15 +47,15 @@
       }
     },
     "error": {
-      "cannot_connect": "Kunde inte ansluta. Kontrollera IP-adress och nätverk.",
+      "cannot_connect": "Kunde inte ansluta. Kontrollera adress och nätverk.",
       "invalid_auth": "Felaktiga inloggningsuppgifter.",
-      "endpoint_not_found": "Inget lokalt API hittades. Se README för protokoll-discovery.",
-      "no_serial": "Inloggning OK men poolens serienummer kunde inte hittas automatiskt. Ange det manuellt (siffran i displaySummary('...') på intellipool.eu).",
+      "endpoint_not_found": "Inget lokalt API hittades på enheten. Se README för protokoll-discovery.",
+      "no_serial": "Inloggningen lyckades men poolens serienummer kunde inte identifieras automatiskt. Ange det manuellt (siffran i displaySummary('...') på intellipool.eu).",
       "bad_failsafe": "Failsafe: API-nyckeln eller installations-ID:t är fel. Lämna båda tomma om du inte vill ha failsafe.",
       "unknown": "Oväntat fel. Kontrollera loggarna."
     },
     "abort": {
-      "already_configured": "Intellipool är redan konfigurerad."
+      "already_configured": "Den här Intellipool är redan konfigurerad."
     }
   },
   "options": {
@@ -65,6 +65,83 @@
         "data": {
           "scan_interval": "Uppdateringsintervall (sekunder)",
           "stale_minutes": "Failsafe: växla till officiellt API efter (minuter utan uppdatering)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "water_temperature": { "name": "Vattentemperatur" },
+      "air_temperature": { "name": "Lufttemperatur" },
+      "ph": { "name": "pH" },
+      "orp": { "name": "ORP (redox)" },
+      "salinity": { "name": "Salthalt" },
+      "pump_speed": { "name": "Filtreringshastighet" },
+      "pump_flow": { "name": "Pumpflöde" },
+      "pump_power": { "name": "Pumpeffekt" },
+      "battery_voltage": { "name": "Sensorbatteri" },
+      "signal_strength": { "name": "Radiosignal" },
+      "info_message": { "name": "Statusmeddelande" },
+      "data_source": { "name": "Datakälla" }
+    },
+    "switch": {
+      "pump": { "name": "Pump" },
+      "filtration": { "name": "Filtrering" },
+      "heating": { "name": "Uppvärmning" },
+      "light": { "name": "Belysning" },
+      "chlorinator": { "name": "Klorering" },
+      "ph_dosing": { "name": "pH-dosering" },
+      "orp_dosing": { "name": "ORP-dosering" },
+      "aux_1": { "name": "Extra 1" },
+      "aux_2": { "name": "Extra 2" },
+      "aux_3": { "name": "Extra 3" }
+    },
+    "number": {
+      "target_ph": { "name": "pH-börvärde" },
+      "target_orp": { "name": "ORP-börvärde" },
+      "speed_setpoint": { "name": "Filtreringshastighet, börvärde" },
+      "speed_electrolysis": { "name": "Varvtal elektrolys" },
+      "speed_heating": { "name": "Varvtal uppvärmning" },
+      "speed_aux1": { "name": "Varvtal Extra 1" },
+      "speed_choc": { "name": "Varvtal chock" }
+    },
+    "select": {
+      "filtration_mode": {
+        "name": "Filtreringsläge",
+        "state": {
+          "auto": "Auto",
+          "on": "På",
+          "off": "Av",
+          "timer": "Timer",
+          "boost": "Chock"
+        }
+      },
+      "lighting_mode": {
+        "name": "Belysningsläge",
+        "state": {
+          "on": "På",
+          "timer": "Timer",
+          "off": "Av"
+        }
+      }
+    },
+    "text": {
+      "schedule_filtration": { "name": "Filtreringsschema" },
+      "schedule_lighting": { "name": "Belysningsschema" },
+      "schedule_aux1": { "name": "Schema Extra 1" }
+    },
+    "climate": {
+      "pool_heating": { "name": "Poolvärmning" }
+    }
+  },
+  "services": {
+    "import_history": {
+      "name": "Importera historik",
+      "description": "Bakåtfyller Home Assistants långtidsstatistik med timvärden från intellipool.eu (vatten- och lufttemperatur, pH, ORP, salthalt, pumpeffekt och varvtal, sensorbatteri, radiosignal). Kräver molnanslutning.",
+      "fields": {
+        "days": {
+          "name": "Antal dagar",
+          "description": "Hur många dygn bakåt som ska importeras."
         }
       }
     }

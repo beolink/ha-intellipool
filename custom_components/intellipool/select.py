@@ -27,7 +27,7 @@ SELECT_DESCRIPTIONS: tuple[IntelliPoolSelectDescription, ...] = (
         command_key="filtration_mode",
         device_field="filtration",
         value_labels=FILTRATION_MODES,
-        name="Filtreringsläge",
+        translation_key="filtration_mode",
         icon="mdi:pump",
     ),
     IntelliPoolSelectDescription(
@@ -35,7 +35,7 @@ SELECT_DESCRIPTIONS: tuple[IntelliPoolSelectDescription, ...] = (
         command_key="lighting_mode",
         device_field="lighting",
         value_labels=LIGHTING_MODES,
-        name="Belysningsläge",
+        translation_key="lighting_mode",
         icon="mdi:lightbulb",
     ),
 )

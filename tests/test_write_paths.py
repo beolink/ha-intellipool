@@ -1,7 +1,7 @@
 """Validate the cloud WRITE paths (controls + setpoints) offline.
 
 Both are checked against ground truth captured from the live intellipool.eu app
-on 2026-07-11 (pool serial 35558):
+on 2026-07-11 (pool serial 12345):
   - the control body is byte-identical to the live-verified light-toggle request
   - the setpoint body is byte-identical to the app's own jQuery form.serialize()
 
@@ -66,7 +66,7 @@ COMMANDS_GET_XML = """<root>
 # The exact body the browser POSTed to /pool/ajaxCommands/save to turn the light
 # ON (lighting=0), which returned <status>Command was sent</status>.
 LIGHT_ON_BODY = (
-    "serial=35558&filtration=1&lighting=0&type_aux1=2"
+    "serial=12345&filtration=1&lighting=0&type_aux1=2"
     "&heating_regulation=1&ph_regulation=1&orp_regulation=0&aux1_3p=2"
 )
 
@@ -119,7 +119,7 @@ SETPOINTS_GET_XML = """<root>
   </datas>
 </root>"""
 
-# The exact string the app's own $('#setpoints_35558 > form').serialize() produced.
+# The exact string the app's own $('#setpoints_12345 > form').serialize() produced.
 SETPOINTS_SERIALIZE = (
     "pool_volume=100&setpoint_heating=25&FILTRATION_STOP_DELAY=0"
     "&OMEOTECH_HEAT_ONLY_FILTRATION_SCHEDULE=on&type_aux1=2"
@@ -137,7 +137,7 @@ SETPOINTS_SERIALIZE = (
 def test_control_body_matches_live():
     api = _load_api()
     state = api._parse_datas_flat(COMMANDS_GET_XML)
-    body = api.build_command_body("35558", state, "light", True)
+    body = api.build_command_body("12345", state, "light", True)
     assert body == LIGHT_ON_BODY, f"\n got: {body}\nwant: {LIGHT_ON_BODY}"
 
 
@@ -145,18 +145,18 @@ def test_control_off_maps_correctly():
     api = _load_api()
     state = api._parse_datas_flat(COMMANDS_GET_XML)
     # pump off → filtration=2
-    assert "filtration=2" in api.build_command_body("35558", state, "pump", False)
+    assert "filtration=2" in api.build_command_body("12345", state, "pump", False)
     # heating on → heating_regulation=0 (Auto)
-    assert "heating_regulation=0" in api.build_command_body("35558", state, "heating", True)
+    assert "heating_regulation=0" in api.build_command_body("12345", state, "heating", True)
 
 
 def test_raw_mode_body():
     """Filtration select → Timer (raw value 3), other fields preserved."""
     api = _load_api()
     state = api._parse_datas_flat(COMMANDS_GET_XML)
-    body = api.build_command_body_raw("35558", state, "filtration", "3")
+    body = api.build_command_body_raw("12345", state, "filtration", "3")
     assert body == (
-        "serial=35558&filtration=3&lighting=2&type_aux1=2"
+        "serial=12345&filtration=3&lighting=2&type_aux1=2"
         "&heating_regulation=1&ph_regulation=1&orp_regulation=0&aux1_3p=2"
     ), body
 

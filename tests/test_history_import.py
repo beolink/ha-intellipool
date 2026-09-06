@@ -47,27 +47,33 @@ HISTORY_RECORDS = [
 
 
 class _FakeApi:
+    """Returns one canned day of hourly history for whichever date is asked."""
+
+    def __init__(self):
+        self.requested_dates = []
+
     async def get_history(self, date, type_date="DAY"):
-        # Only the most recent day returns data; older days are empty.
-        return HISTORY_RECORDS if date.endswith("-11") else []
+        self.requested_dates.append(date)
+        return HISTORY_RECORDS
 
 
 class _FakeCoordinator:
-    api = _FakeApi()
+    def __init__(self):
+        self.api = _FakeApi()
 
 
 async def test_history_import_writes_statistics(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ):
     aioclient_mock.get(
-        re.compile(r"https://api\.domotique-piscine\.eu/api/install/45558/probes"),
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
         json=PROBES_JSON,
     )
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
             CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
-            CONF_INSTALL_ID: "45558",
+            CONF_INSTALL_ID: "12345",
             CONF_API_KEY: "test-key",
         },
     )
@@ -81,13 +87,15 @@ async def test_history_import_writes_statistics(
         if e.unique_id == f"{entry.entry_id}_water_temperature"
     )
 
+    coordinator = _FakeCoordinator()
     with patch(
         "custom_components.intellipool.history.async_import_statistics"
     ) as mock_import:
-        # Freeze "today" so the fake api's date check is deterministic.
-        result = await async_import_history(
-            hass, entry, _FakeCoordinator(), days=1
-        )
+        result = await async_import_history(hass, entry, coordinator, days=1)
+
+    # Exactly one day was requested, as YYYY-MM-DD.
+    assert len(coordinator.api.requested_dates) == 1
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", coordinator.api.requested_dates[0])
 
     # Water-temp sensor got 3 hourly points (indices 0,1,3; index 2 was '--').
     assert result[water.entity_id] == 3
