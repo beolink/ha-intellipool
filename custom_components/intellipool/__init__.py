@@ -9,6 +9,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNA
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
 from .api import CannotConnect, IntelliPoolAPI, IntelliPoolOfficialAPI
 from .const import (
@@ -28,6 +29,8 @@ from .const import (
     DOMAIN,
     SERVICE_IMPORT_HISTORY,
 )
+from .stats import async_setup_stats
+from .stats_extra import build_extra
 from .coordinator import IntelliPoolCoordinator
 from .history import async_import_history
 
@@ -98,6 +101,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _async_register_services(hass)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+    # Anonymous daily report. Reads what the coordinator already holds and
+    # never talks to the pool itself. What goes in it: stats_extra.py, and
+    # https://stats.rnet.se/integritet for why.
+    integration = await async_get_integration(hass, DOMAIN)
+
+    def _stats_extra() -> dict:
+        data = coordinator.data
+        fields = data.__dict__ if hasattr(data, "__dict__") else (data or {})
+        return build_extra(
+            connection=conn_type,
+            has_failsafe=fallback is not None,
+            control_enabled=bool(entry.options.get("control_enabled", True)),
+            heating=fields.get("heating") is not None,
+            chlorinator=fields.get("chlorinator") is not None,
+            data=fields,
+        )
+
+    reporter = await async_setup_stats(
+        hass, entry, DOMAIN, str(integration.version), extra=_stats_extra
+    )
+    entry.async_on_unload(reporter.async_stop)
 
     return True
 

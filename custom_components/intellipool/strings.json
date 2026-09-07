@@ -64,46 +64,108 @@
         "title": "Intellipool options",
         "data": {
           "scan_interval": "Update interval (seconds)",
-          "stale_minutes": "Failsafe: switch to the official API after (minutes without an update)"
+          "stale_minutes": "Failsafe: switch to the official API after (minutes without an update)",
+          "send_statistics": "Send anonymous usage statistics"
+        },
+        "data_description": {
+          "send_statistics": "One report per day to stats.rnet.se: integration version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, which transport is in use, and the pool's own readings at reporting time: water and air temperature, pH, ORP, salinity and pump speed. Read once a day, never sampled, so nothing here says when anyone is home. Never a name, an address, an exact position, a serial number, a pool id or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: https://stats.rnet.se/integritet"
         }
       }
     }
   },
   "entity": {
     "sensor": {
-      "water_temperature": { "name": "Water temperature" },
-      "air_temperature": { "name": "Air temperature" },
-      "ph": { "name": "pH" },
-      "orp": { "name": "ORP (redox)" },
-      "salinity": { "name": "Salinity" },
-      "pump_speed": { "name": "Filtration speed" },
-      "pump_flow": { "name": "Pump flow" },
-      "pump_power": { "name": "Pump power" },
-      "battery_voltage": { "name": "Sensor battery" },
-      "signal_strength": { "name": "Radio signal" },
-      "info_message": { "name": "Status message" },
-      "data_source": { "name": "Data source" }
+      "water_temperature": {
+        "name": "Water temperature"
+      },
+      "air_temperature": {
+        "name": "Air temperature"
+      },
+      "ph": {
+        "name": "pH"
+      },
+      "orp": {
+        "name": "ORP (redox)"
+      },
+      "salinity": {
+        "name": "Salinity"
+      },
+      "pump_speed": {
+        "name": "Filtration speed"
+      },
+      "pump_flow": {
+        "name": "Pump flow"
+      },
+      "pump_power": {
+        "name": "Pump power"
+      },
+      "battery_voltage": {
+        "name": "Sensor battery"
+      },
+      "signal_strength": {
+        "name": "Radio signal"
+      },
+      "info_message": {
+        "name": "Status message"
+      },
+      "data_source": {
+        "name": "Data source"
+      }
     },
     "switch": {
-      "pump": { "name": "Pump" },
-      "filtration": { "name": "Filtration" },
-      "heating": { "name": "Heating" },
-      "light": { "name": "Lighting" },
-      "chlorinator": { "name": "Chlorination" },
-      "ph_dosing": { "name": "pH dosing" },
-      "orp_dosing": { "name": "ORP dosing" },
-      "aux_1": { "name": "Aux 1" },
-      "aux_2": { "name": "Aux 2" },
-      "aux_3": { "name": "Aux 3" }
+      "pump": {
+        "name": "Pump"
+      },
+      "filtration": {
+        "name": "Filtration"
+      },
+      "heating": {
+        "name": "Heating"
+      },
+      "light": {
+        "name": "Lighting"
+      },
+      "chlorinator": {
+        "name": "Chlorination"
+      },
+      "ph_dosing": {
+        "name": "pH dosing"
+      },
+      "orp_dosing": {
+        "name": "ORP dosing"
+      },
+      "aux_1": {
+        "name": "Aux 1"
+      },
+      "aux_2": {
+        "name": "Aux 2"
+      },
+      "aux_3": {
+        "name": "Aux 3"
+      }
     },
     "number": {
-      "target_ph": { "name": "pH setpoint" },
-      "target_orp": { "name": "ORP setpoint" },
-      "speed_setpoint": { "name": "Filtration speed setpoint" },
-      "speed_electrolysis": { "name": "Electrolysis speed" },
-      "speed_heating": { "name": "Heating speed" },
-      "speed_aux1": { "name": "Aux 1 speed" },
-      "speed_choc": { "name": "Boost speed" }
+      "target_ph": {
+        "name": "pH setpoint"
+      },
+      "target_orp": {
+        "name": "ORP setpoint"
+      },
+      "speed_setpoint": {
+        "name": "Filtration speed setpoint"
+      },
+      "speed_electrolysis": {
+        "name": "Electrolysis speed"
+      },
+      "speed_heating": {
+        "name": "Heating speed"
+      },
+      "speed_aux1": {
+        "name": "Aux 1 speed"
+      },
+      "speed_choc": {
+        "name": "Boost speed"
+      }
     },
     "select": {
       "filtration_mode": {
@@ -126,12 +188,20 @@
       }
     },
     "text": {
-      "schedule_filtration": { "name": "Filtration schedule" },
-      "schedule_lighting": { "name": "Lighting schedule" },
-      "schedule_aux1": { "name": "Aux 1 schedule" }
+      "schedule_filtration": {
+        "name": "Filtration schedule"
+      },
+      "schedule_lighting": {
+        "name": "Lighting schedule"
+      },
+      "schedule_aux1": {
+        "name": "Aux 1 schedule"
+      }
     },
     "climate": {
-      "pool_heating": { "name": "Pool heating" }
+      "pool_heating": {
+        "name": "Pool heating"
+      }
     }
   },
   "services": {

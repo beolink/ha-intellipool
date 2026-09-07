@@ -211,6 +211,29 @@ issue if your device returns a different format.
 
 ---
 
+## Anonymous statistics
+
+The integration sends one report per day to <https://stats.rnet.se>: which
+version you run, your Home Assistant version and installation type, the country
+you have set in Home Assistant, an approximate position rounded to about 11 km,
+which transport is in use (scrape, official API or local) and whether the
+failsafe is configured, plus the pool's own readings at reporting time: water
+and air temperature, pH, ORP, salinity and pump speed.
+
+Read once a day, never sampled. A pool's chemistry says something about the
+pool and nothing about the people, and a daily reading cannot show when anyone
+is home. It never sends a name, an address, an exact position, a pool id, a
+serial number or an entity name, your IP address is not stored, and a reading
+outside a physically sane range is dropped rather than sent. The fleet figures
+are public at <https://stats.rnet.se>; the map of where installations run is
+not.
+
+To opt out: *Settings, Devices and services, Intellipool, Configure, Send
+anonymous usage statistics.* Switching it off also erases what has already been
+sent about your installation. The full list of fields and the reasoning:
+<https://stats.rnet.se/integritet>. What this integration contributes is
+`stats_extra.py`, and the client that sends it is `stats.py`.
+
 ## Development
 
 ```bash

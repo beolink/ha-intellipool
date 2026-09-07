@@ -38,6 +38,7 @@ from .const import (
     DEFAULT_STALE_MINUTES,
     DOMAIN,
 )
+from .stats import OPTION_KEY as CONF_SEND_STATISTICS, async_forget_install
 from .discovery import DiscoveredDevice, discover_devices
 
 _LOGGER = logging.getLogger(__name__)
@@ -448,6 +449,12 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is not None:
+            was_on = self.config_entry.options.get(CONF_SEND_STATISTICS, True)
+            now_on = bool(user_input.get(CONF_SEND_STATISTICS, True))
+            if was_on and not now_on:
+                # Switching it off erases what has already been sent, rather
+                # than merely going quiet.
+                await async_forget_install(self.hass, self.config_entry, DOMAIN)
             return self.async_create_entry(title="", data=user_input)
 
         current_interval = self.config_entry.options.get(
@@ -464,6 +471,10 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_STALE_MINUTES, default=current_stale): vol.All(
                     int, vol.Range(min=5, max=240)
                 ),
+                vol.Optional(
+                    CONF_SEND_STATISTICS,
+                    default=self.config_entry.options.get(CONF_SEND_STATISTICS, True),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

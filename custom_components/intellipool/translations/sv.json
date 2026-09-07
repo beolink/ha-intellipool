@@ -64,46 +64,108 @@
         "title": "Intellipool-inställningar",
         "data": {
           "scan_interval": "Uppdateringsintervall (sekunder)",
-          "stale_minutes": "Failsafe: växla till officiellt API efter (minuter utan uppdatering)"
+          "stale_minutes": "Failsafe: växla till officiellt API efter (minuter utan uppdatering)",
+          "send_statistics": "Skicka anonym användningsstatistik"
+        },
+        "data_description": {
+          "send_statistics": "En rapport per dygn till stats.rnet.se: integrationens version, Home Assistant-version och installationstyp, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, och poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal. Läses en gång per dygn, aldrig som en serie, så inget här visar när någon är hemma. Aldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Stänger du av den raderas också det som redan skickats. Hela listan: https://stats.rnet.se/integritet"
         }
       }
     }
   },
   "entity": {
     "sensor": {
-      "water_temperature": { "name": "Vattentemperatur" },
-      "air_temperature": { "name": "Lufttemperatur" },
-      "ph": { "name": "pH" },
-      "orp": { "name": "ORP (redox)" },
-      "salinity": { "name": "Salthalt" },
-      "pump_speed": { "name": "Filtreringshastighet" },
-      "pump_flow": { "name": "Pumpflöde" },
-      "pump_power": { "name": "Pumpeffekt" },
-      "battery_voltage": { "name": "Sensorbatteri" },
-      "signal_strength": { "name": "Radiosignal" },
-      "info_message": { "name": "Statusmeddelande" },
-      "data_source": { "name": "Datakälla" }
+      "water_temperature": {
+        "name": "Vattentemperatur"
+      },
+      "air_temperature": {
+        "name": "Lufttemperatur"
+      },
+      "ph": {
+        "name": "pH"
+      },
+      "orp": {
+        "name": "ORP (redox)"
+      },
+      "salinity": {
+        "name": "Salthalt"
+      },
+      "pump_speed": {
+        "name": "Filtreringshastighet"
+      },
+      "pump_flow": {
+        "name": "Pumpflöde"
+      },
+      "pump_power": {
+        "name": "Pumpeffekt"
+      },
+      "battery_voltage": {
+        "name": "Sensorbatteri"
+      },
+      "signal_strength": {
+        "name": "Radiosignal"
+      },
+      "info_message": {
+        "name": "Statusmeddelande"
+      },
+      "data_source": {
+        "name": "Datakälla"
+      }
     },
     "switch": {
-      "pump": { "name": "Pump" },
-      "filtration": { "name": "Filtrering" },
-      "heating": { "name": "Uppvärmning" },
-      "light": { "name": "Belysning" },
-      "chlorinator": { "name": "Klorering" },
-      "ph_dosing": { "name": "pH-dosering" },
-      "orp_dosing": { "name": "ORP-dosering" },
-      "aux_1": { "name": "Extra 1" },
-      "aux_2": { "name": "Extra 2" },
-      "aux_3": { "name": "Extra 3" }
+      "pump": {
+        "name": "Pump"
+      },
+      "filtration": {
+        "name": "Filtrering"
+      },
+      "heating": {
+        "name": "Uppvärmning"
+      },
+      "light": {
+        "name": "Belysning"
+      },
+      "chlorinator": {
+        "name": "Klorering"
+      },
+      "ph_dosing": {
+        "name": "pH-dosering"
+      },
+      "orp_dosing": {
+        "name": "ORP-dosering"
+      },
+      "aux_1": {
+        "name": "Extra 1"
+      },
+      "aux_2": {
+        "name": "Extra 2"
+      },
+      "aux_3": {
+        "name": "Extra 3"
+      }
     },
     "number": {
-      "target_ph": { "name": "pH-börvärde" },
-      "target_orp": { "name": "ORP-börvärde" },
-      "speed_setpoint": { "name": "Filtreringshastighet, börvärde" },
-      "speed_electrolysis": { "name": "Varvtal elektrolys" },
-      "speed_heating": { "name": "Varvtal uppvärmning" },
-      "speed_aux1": { "name": "Varvtal Extra 1" },
-      "speed_choc": { "name": "Varvtal chock" }
+      "target_ph": {
+        "name": "pH-börvärde"
+      },
+      "target_orp": {
+        "name": "ORP-börvärde"
+      },
+      "speed_setpoint": {
+        "name": "Filtreringshastighet, börvärde"
+      },
+      "speed_electrolysis": {
+        "name": "Varvtal elektrolys"
+      },
+      "speed_heating": {
+        "name": "Varvtal uppvärmning"
+      },
+      "speed_aux1": {
+        "name": "Varvtal Extra 1"
+      },
+      "speed_choc": {
+        "name": "Varvtal chock"
+      }
     },
     "select": {
       "filtration_mode": {
@@ -126,12 +188,20 @@
       }
     },
     "text": {
-      "schedule_filtration": { "name": "Filtreringsschema" },
-      "schedule_lighting": { "name": "Belysningsschema" },
-      "schedule_aux1": { "name": "Schema Extra 1" }
+      "schedule_filtration": {
+        "name": "Filtreringsschema"
+      },
+      "schedule_lighting": {
+        "name": "Belysningsschema"
+      },
+      "schedule_aux1": {
+        "name": "Schema Extra 1"
+      }
     },
     "climate": {
-      "pool_heating": { "name": "Poolvärmning" }
+      "pool_heating": {
+        "name": "Poolvärmning"
+      }
     }
   },
   "services": {
