@@ -22,6 +22,9 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_API_KEY = "api_key"          # official domotique-piscine.eu API key
 CONF_INSTALL_ID = "install_id"    # official API installation id
 CONF_STALE_MINUTES = "stale_minutes"  # failsafe threshold
+# Must match OPTION_KEY in stats.py. Kept here so config_flow can build its
+# schema without importing stats.py, which pulls in Home Assistant.
+CONF_SEND_STATISTICS = "send_statistics"
 
 # Defaults
 DEFAULT_PORT = 80

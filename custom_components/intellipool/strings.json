@@ -68,7 +68,7 @@
           "send_statistics": "Send anonymous usage statistics"
         },
         "data_description": {
-          "send_statistics": "One report per day to stats.rnet.se: integration version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, which transport is in use, and the pool's own readings at reporting time: water and air temperature, pH, ORP, salinity and pump speed. Read once a day, never sampled, so nothing here says when anyone is home. Never a name, an address, an exact position, a serial number, a pool id or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: https://stats.rnet.se/integritet"
+          "send_statistics": "One report per day to {endpoint}: integration version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, which transport is in use, and the pool's own readings at reporting time: water and air temperature, pH, ORP, salinity and pump speed. Read once a day, never sampled, so nothing here says when anyone is home. Never a name, an address, an exact position, a serial number, a pool id or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url}"
         }
       }
     }

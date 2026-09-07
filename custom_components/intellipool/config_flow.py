@@ -29,6 +29,7 @@ from .const import (
     CONF_POOL_ID,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
+    CONF_SEND_STATISTICS,
     CONF_STALE_MINUTES,
     CONN_TYPE_CLOUD,
     CONN_TYPE_LOCAL,
@@ -38,8 +39,16 @@ from .const import (
     DEFAULT_STALE_MINUTES,
     DOMAIN,
 )
-from .stats import OPTION_KEY as CONF_SEND_STATISTICS, async_forget_install
 from .discovery import DiscoveredDevice, discover_devices
+
+
+# hassfest rejects URLs in strings.json, so the addresses travel as
+# placeholders instead.
+STATS_PLACEHOLDERS = {
+    "endpoint": "stats.rnet.se",
+    "endpoint_url": "https://stats.rnet.se",
+    "privacy_url": "https://stats.rnet.se/integritet",
+}
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -453,7 +462,11 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
             now_on = bool(user_input.get(CONF_SEND_STATISTICS, True))
             if was_on and not now_on:
                 # Switching it off erases what has already been sent, rather
-                # than merely going quiet.
+                # than merely going quiet. Imported here rather than at the top:
+                # stats.py pulls in Home Assistant, and this module is imported
+                # by tests that run without it.
+                from .stats import async_forget_install
+
                 await async_forget_install(self.hass, self.config_entry, DOMAIN)
             return self.async_create_entry(title="", data=user_input)
 
@@ -477,4 +490,7 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
                 ): bool,
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(
+            step_id="init", data_schema=schema,
+            description_placeholders=STATS_PLACEHOLDERS,
+        )
