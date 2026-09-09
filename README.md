@@ -291,7 +291,7 @@ different data format, open an issue with the raw response from debug logs.
 
 ## License
 
-MIT
+[Apache License 2.0](LICENSE). Copyright 2026 Andreas Reimers.
 
 [hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
 [hacs-url]: https://github.com/hacs/integration
