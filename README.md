@@ -277,6 +277,14 @@ custom_components/intellipool/
 - [x] IntelliFlo variable-speed pump control
 - [x] History import into long-term statistics
 - [x] Verified in a real Home Assistant instance
+- [ ] Sync the shared `stats.py` from ha-ctc at the next build
+  - `EXTRA_KEYS` now also lets the per-board `firmwares` object through
+  - arm the reporter at the top of `async_setup_entry`, before
+    `async_config_entry_first_refresh`, and stop it only with
+    `async_stop_stats` from `async_unload_entry` instead of
+    `entry.async_on_unload(reporter.async_stop)`; today a device that does not
+    answer at start-up means no daily report until it does
+  - a test that reads `EXTRA_KEYS` from stats.py, so a dropped key fails locally
 - [ ] More reliable raw-serial auto-detection during setup
 - [ ] Treat an empty cloud response as a failure so the failsafe takes over
 - [ ] Support for E-Box and Intellipool Lite
