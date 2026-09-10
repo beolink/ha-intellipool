@@ -7,9 +7,25 @@ itself, entity counts, a few on/off flags and an approximate position rounded
 to about 11 km. Never a name, an address, an exact position, a serial number,
 an entity id or anything at a finer resolution than one day.
 
+Two things tie the picture together. ``ha_id`` is a hash of Home Assistant's
+own instance id, so every beolink plugin on the same installation arrives at
+the same value on its own, without talking to each other; the instance id
+itself never leaves the house, and the server hashes the hash again before
+storing it. And the report carries how many warnings and errors the
+integration's own logger has written since the previous report: the counts
+only, never a message.
+
 Reporting is on by default and is switched off in the integration's options.
 Switching it off sends one last call that erases everything stored about this
 particular installation.
+
+The reporter is armed once per config entry and kept in ``hass.data``, so it
+outlives a set-up that does not finish. An integration whose device is
+unreachable at start-up raises ConfigEntryNotReady and is retried by Home
+Assistant for as long as the device stays away; if the reporter were tied to
+that attempt, the installation would fall silent exactly while something is
+wrong with it. Arm it before the first call that can raise, and stop it from
+``async_unload_entry`` (which a failed attempt never reaches).
 
 What is collected, and why: https://stats.rnet.se/integritet
 """
@@ -17,6 +33,7 @@ What is collected, and why: https://stats.rnet.se/integritet
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import random
 import uuid
@@ -26,7 +43,7 @@ from typing import Any, Callable
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er, instance_id
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 from homeassistant.helpers.storage import Store
@@ -40,6 +57,9 @@ SCHEMA_VERSION = 1
 #: Option key that controls reporting. On unless the user turns it off.
 OPTION_KEY = "send_statistics"
 
+#: Where the armed reporters live, keyed by (domain, entry_id).
+DATA_KEY = "rnet_stats_reporters"
+
 INTERVAL = timedelta(hours=24)
 FIRST_DELAY = timedelta(minutes=10)
 TIMEOUT = 10
@@ -47,7 +67,11 @@ TIMEOUT = 10
 #: Only these keys may be added by the integration's own extra callback. The
 #: backend rejects anything else, but stopping it here keeps a careless caller
 #: from ever putting house data on the wire in the first place.
-EXTRA_KEYS = ("models", "features", "errors", "metrics", "firmware")
+#: "firmwares" is the per-board object ({"display": ..., "heatpump": ...,
+#: "control": ...}) that schema 2 added and the backend has accepted since; it
+#: was missing here, so every integration sending it had its firmware dropped
+#: before the wire.
+EXTRA_KEYS = ("models", "features", "errors", "metrics", "firmware", "firmwares")
 
 #: Decimals kept of the position. One decimal is roughly 11 km, which is enough
 #: for climate, price area and a readable map, and far too coarse to point at a
@@ -84,6 +108,48 @@ def stats_enabled(entry: ConfigEntry) -> bool:
         return bool(options[OPTION_KEY])
     data = getattr(entry, "data", None) or {}
     return bool(data.get(OPTION_KEY, True))
+
+
+class _LogCounter(logging.Handler):
+    """Counts warnings and errors in the integration's own log.
+
+    Attached to the ``custom_components.<domain>`` logger, which every module
+    of the integration logs through. Only the counts are ever read.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.errors = 0
+        self.warnings = 0
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.levelno >= logging.ERROR:
+            self.errors += 1
+        else:
+            self.warnings += 1
+
+
+#: One counter per integration, owned by the first config entry that armed it,
+#: so that two entries of the same integration never report the same lines.
+_COUNTERS: dict[str, tuple[_LogCounter, str]] = {}
+
+
+def _log_counter_for(domain: str, entry_id: str) -> _LogCounter | None:
+    """The counter this entry reports from, or None if another entry owns it."""
+    owned = _COUNTERS.get(domain)
+    if owned is None:
+        counter = _LogCounter()
+        logging.getLogger(f"custom_components.{domain}").addHandler(counter)
+        _COUNTERS[domain] = (counter, entry_id)
+        return counter
+    return owned[0] if owned[1] == entry_id else None
+
+
+def _release_log_counter(domain: str, entry_id: str) -> None:
+    owned = _COUNTERS.get(domain)
+    if owned is not None and owned[1] == entry_id:
+        logging.getLogger(f"custom_components.{domain}").removeHandler(owned[0])
+        _COUNTERS.pop(domain, None)
 
 
 class StatsReporter:
@@ -136,6 +202,9 @@ class StatsReporter:
             _LOGGER.debug("Statistics disabled for %s", self.domain)
             return
 
+        # Count the integration's warnings and errors from now on.
+        _log_counter_for(self.domain, self.entry.entry_id)
+
         async def _first(_now) -> None:
             await self.async_report()
             self._cancel.append(
@@ -147,10 +216,34 @@ class StatsReporter:
         self._cancel.append(async_call_later(self.hass, delay, _first))
 
     async def async_stop(self) -> None:
-        """Cancel the timers. Called from async_unload_entry."""
+        """Cancel the timers. Safe to call more than once."""
         for cancel in self._cancel:
             cancel()
         self._cancel.clear()
+        _release_log_counter(self.domain, self.entry.entry_id)
+
+    async def _async_ha_id(self) -> str | None:
+        """The id every beolink plugin on this Home Assistant arrives at on its
+        own. A hash of HA's instance id, so the instance id stays in the house."""
+        try:
+            iid = await instance_id.async_get(self.hass)
+        except Exception:  # pragma: no cover - depends on the HA version
+            return None
+        return hashlib.sha256(f"beolink-stats:{iid}".encode()).hexdigest()[:32]
+
+    @property
+    def armed(self) -> bool:
+        """Whether the timers are running."""
+        return bool(self._cancel)
+
+    def rearm_source(self, version: str, extra=None, name: str | None = None) -> None:
+        """Point an already armed reporter at the current set-up attempt: the
+        callback and the version may have changed since it was armed."""
+        self.version = version
+        if extra is not None:
+            self.extra = extra
+        if name:
+            self.name = name
 
     async def async_payload(self) -> dict[str, Any]:
         """Build the payload. Everything in it is deliberately coarse."""
@@ -189,7 +282,12 @@ class StatsReporter:
             "devices": devices,
             "lat": lat,
             "lon": lon,
+            "ha_id": await self._async_ha_id(),
         }
+        counter = _log_counter_for(self.domain, self.entry.entry_id)
+        if counter is not None:
+            payload["log_errors"] = counter.errors
+            payload["log_warnings"] = counter.warnings
         if self.extra:
             try:
                 for key, value in (self.extra() or {}).items():
@@ -220,6 +318,14 @@ class StatsReporter:
                 async with session.post(self.endpoint, json=payload) as resp:
                     if resp.status >= 400:
                         _LOGGER.debug("Statistics rejected: %s", resp.status)
+                    else:
+                        # The counts went out. Subtract what was sent rather
+                        # than zeroing, so lines logged during the send are
+                        # kept for the next report.
+                        counter = _log_counter_for(self.domain, self.entry.entry_id)
+                        if counter is not None:
+                            counter.errors = max(0, counter.errors - payload.get("log_errors", 0))
+                            counter.warnings = max(0, counter.warnings - payload.get("log_warnings", 0))
         except Exception:  # noqa: BLE001 - statistics must never break anything
             _LOGGER.debug("Could not send statistics", exc_info=True)
 
@@ -249,10 +355,37 @@ async def async_setup_stats(
     extra: Callable[[], dict[str, Any]] | None = None,
     name: str | None = None,
 ) -> StatsReporter:
-    """Create, start and return the reporter."""
+    """Arm the reporter for this entry, or return the one already armed.
+
+    Call it early in ``async_setup_entry``, before the first call that can
+    raise ConfigEntryNotReady. A second call for the same entry (Home
+    Assistant retrying a set-up whose device is unreachable) updates the
+    callback and returns the running reporter instead of arming a second one,
+    so the daily report keeps going out while the device is away.
+
+    The caller must NOT register ``entry.async_on_unload(reporter.async_stop)``:
+    Home Assistant runs those callbacks when a set-up attempt fails, which is
+    the case this is here to survive. Stop it from ``async_unload_entry``
+    with :func:`async_stop_stats` instead.
+    """
+    reporters: dict = hass.data.setdefault(DATA_KEY, {})
+    key = (domain, entry.entry_id)
+    existing: StatsReporter | None = reporters.get(key)
+    if existing is not None and existing.armed:
+        existing.rearm_source(version, extra, name)
+        return existing
     reporter = StatsReporter(hass, entry, domain, version, extra, name=name)
+    reporters[key] = reporter
     await reporter.async_start()
     return reporter
+
+
+async def async_stop_stats(hass: HomeAssistant, entry: ConfigEntry, domain: str) -> None:
+    """Stop and forget the entry's reporter. Call it from
+    ``async_unload_entry``, never from an ``entry.async_on_unload`` callback."""
+    reporter = (hass.data.get(DATA_KEY) or {}).pop((domain, entry.entry_id), None)
+    if reporter is not None:
+        await reporter.async_stop()
 
 
 async def async_forget_install(hass: HomeAssistant, entry: ConfigEntry, domain: str) -> None:

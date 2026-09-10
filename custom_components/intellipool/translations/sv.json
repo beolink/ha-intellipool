@@ -68,7 +68,7 @@
           "send_statistics": "Skicka anonym användningsstatistik"
         },
         "data_description": {
-          "send_statistics": "En rapport per dygn till {endpoint}: integrationens version, Home Assistant-version och installationstyp, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, och poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal. Läses en gång per dygn, aldrig som en serie, så inget här visar när någon är hemma. Aldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Stänger du av den raderas också det som redan skickats. Hela listan: {privacy_url}"
+          "send_statistics": "En rapport per dygn till {endpoint}: integrationens version, Home Assistant-version och installationstyp, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, och poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal. Läses en gång per dygn, aldrig som en serie, så inget här visar när någon är hemma. Aldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Stänger du av den raderas också det som redan skickats. Hela listan: {privacy_url} Dessutom skickas en hash som knyter ihop beolinks plugin på samma Home Assistant, och hur många varningar och fel integrationen loggat sedan förra rapporten, aldrig själva meddelandena."
         }
       }
     }
