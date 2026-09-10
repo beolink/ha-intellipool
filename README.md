@@ -277,8 +277,8 @@ custom_components/intellipool/
 - [x] IntelliFlo variable-speed pump control
 - [x] History import into long-term statistics
 - [x] Verified in a real Home Assistant instance
-- [ ] Sync the shared `stats.py` from ha-ctc at the next build
-  - `EXTRA_KEYS` now also lets the per-board `firmwares` object through
+- [x] Shared `stats.py` synced from ha-ctc (1.12.2)
+- [ ] Wire the daily report to the shared `stats.py`'s contract
   - arm the reporter at the top of `async_setup_entry`, before
     `async_config_entry_first_refresh`, and stop it only with
     `async_stop_stats` from `async_unload_entry` instead of
