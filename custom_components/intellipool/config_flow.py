@@ -29,6 +29,7 @@ from .const import (
     CONF_POOL_ID,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
+    CONF_SEND_READINGS,
     CONF_SEND_STATISTICS,
     CONF_STALE_MINUTES,
     CONN_TYPE_CLOUD,
@@ -437,21 +438,23 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_statistics(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Ask before any statistics are reported.
+        """Ask before the pool's own readings are reported.
 
-        Opt-in: the box is off, and the reporter only starts when the user
-        ticks it here or in the options later.
+        Opt-in and on its own: the daily report carries versions, installation
+        type and a coarse location either way, and can be switched off entirely
+        in the options. The measured values only travel when this box is
+        ticked, here or in the options later.
         """
         if user_input is not None:
-            self._data[CONF_SEND_STATISTICS] = bool(
-                user_input.get(CONF_SEND_STATISTICS, False)
+            self._data[CONF_SEND_READINGS] = bool(
+                user_input.get(CONF_SEND_READINGS, False)
             )
             return self.async_create_entry(title=self._title, data=self._data)
 
         return self.async_show_form(
             step_id="statistics",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_SEND_STATISTICS, default=False): bool}
+                {vol.Optional(CONF_SEND_READINGS, default=False): bool}
             ),
             description_placeholders=STATS_PLACEHOLDERS,
         )
@@ -478,11 +481,11 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        from .stats import stats_enabled
+        from .stats import readings_enabled, stats_enabled
 
         if user_input is not None:
             was_on = stats_enabled(self.config_entry)
-            now_on = bool(user_input.get(CONF_SEND_STATISTICS, False))
+            now_on = bool(user_input.get(CONF_SEND_STATISTICS, True))
             if was_on and not now_on:
                 # Switching it off erases what has already been sent, rather
                 # than merely going quiet. Imported here rather than at the top:
@@ -510,6 +513,10 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_SEND_STATISTICS,
                     default=stats_enabled(self.config_entry),
+                ): bool,
+                vol.Optional(
+                    CONF_SEND_READINGS,
+                    default=readings_enabled(self.config_entry),
                 ): bool,
             }
         )

@@ -122,35 +122,39 @@ async def test_data_flows_into_ha_entities(
     assert entry.state is ConfigEntryState.NOT_LOADED
 
 
-def test_statistics_are_opt_in() -> None:
-    """Nothing is reported until the user has said yes.
+def test_reporting_stays_on_but_readings_are_opt_in() -> None:
+    """Two separate switches.
 
-    The reviewer's requirement for HACS inclusion: an entry that never answered
-    the question, including every entry created before it was asked, must stay
-    silent.
+    The daily report itself keeps working unless switched off (stats_enabled),
+    while the pool's own measured values only travel when asked for
+    (readings_enabled). An entry that predates the question reports, without
+    the readings.
     """
-    from custom_components.intellipool.stats import stats_enabled
+    from custom_components.intellipool.stats import readings_enabled, stats_enabled
 
     never_asked = MockConfigEntry(domain=DOMAIN, data={}, options={})
-    assert stats_enabled(never_asked) is False
+    assert stats_enabled(never_asked) is True
+    assert readings_enabled(never_asked) is False
 
-    said_no = MockConfigEntry(domain=DOMAIN, data={"send_statistics": False})
-    assert stats_enabled(said_no) is False
+    said_yes = MockConfigEntry(domain=DOMAIN, data={"send_readings": True})
+    assert readings_enabled(said_yes) is True
+    assert stats_enabled(said_yes) is True
 
-    said_yes_in_flow = MockConfigEntry(domain=DOMAIN, data={"send_statistics": True})
-    assert stats_enabled(said_yes_in_flow) is True
-
-    # Options win over whatever the flow stored, in both directions.
-    turned_off_later = MockConfigEntry(
-        domain=DOMAIN, data={"send_statistics": True},
-        options={"send_statistics": False},
+    reporting_off = MockConfigEntry(
+        domain=DOMAIN, data={}, options={"send_statistics": False},
     )
-    assert stats_enabled(turned_off_later) is False
+    assert stats_enabled(reporting_off) is False
 
-    turned_on_later = MockConfigEntry(
-        domain=DOMAIN, data={}, options={"send_statistics": True},
+    # Options win over the stored answer, in both directions.
+    readings_off_later = MockConfigEntry(
+        domain=DOMAIN, data={"send_readings": True},
+        options={"send_readings": False},
     )
-    assert stats_enabled(turned_on_later) is True
+    assert readings_enabled(readings_off_later) is False
+    readings_on_later = MockConfigEntry(
+        domain=DOMAIN, data={}, options={"send_readings": True},
+    )
+    assert readings_enabled(readings_on_later) is True
 
 
 async def test_options_flow_opens_and_saves(
@@ -181,22 +185,23 @@ async def test_options_flow_opens_and_saves(
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "init"
-    # The statistics box reflects the stored answer, which here is "never asked".
-    assert result["data_schema"]({})["send_statistics"] is False
+    defaults = result["data_schema"]({})
+    assert defaults["send_statistics"] is True
+    assert defaults["send_readings"] is False
 
     done = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={"scan_interval": 60, "stale_minutes": 30,
-                    "send_statistics": False},
+                    "send_statistics": True, "send_readings": False},
     )
     assert done["type"] is FlowResultType.CREATE_ENTRY
     assert done["data"]["scan_interval"] == 60
 
 
-async def test_config_flow_asks_before_reporting(
+async def test_config_flow_asks_before_sending_readings(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """The last step of setup is the statistics question, and it defaults to no."""
+    """Setup ends on the readings question, and it defaults to no."""
     aioclient_mock.get(
         re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
         json=PROBES_JSON,
@@ -213,9 +218,52 @@ async def test_config_flow_asks_before_reporting(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "statistics"
-    assert result["data_schema"]({})["send_statistics"] is False
+    assert result["data_schema"]({})["send_readings"] is False
 
-    # Accepting the form as presented must not switch reporting on.
+    # Accepting the form as presented must not switch the readings on.
     created = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert created["type"] is FlowResultType.CREATE_ENTRY
-    assert created["data"]["send_statistics"] is False
+    assert created["data"]["send_readings"] is False
+
+
+async def test_readings_are_left_out_of_the_payload_without_consent(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The gate is in the payload, not only in the form.
+
+    Without consent the report still goes, carrying models and features, but
+    the measured values are absent.
+    """
+    aioclient_mock.get(
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
+        json=PROBES_JSON,
+    )
+    aioclient_mock.post(re.compile(r"https://stats\.rnet\.se/"), json={"status": "ok"})
+
+    base = {
+        CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
+        CONF_INSTALL_ID: "12345",
+        CONF_API_KEY: "key",
+    }
+    silent = MockConfigEntry(domain=DOMAIN, data=base)
+    silent.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(silent.entry_id)
+    await hass.async_block_till_done()
+    reporter = _reporter_for(hass, silent)
+    assert "metrics" not in reporter.extra()
+    assert reporter.extra()["models"] == ["intp_1010b"]
+
+    consented = MockConfigEntry(domain=DOMAIN, data={**base, "send_readings": True})
+    consented.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(consented.entry_id)
+    await hass.async_block_till_done()
+    assert "metrics" in _reporter_for(hass, consented).extra()
+
+
+def _reporter_for(hass: HomeAssistant, entry: MockConfigEntry):
+    """The reporter is held by the entry's unload callbacks, not hass.data."""
+    for job in entry._on_unload or []:
+        holder = getattr(job, "__self__", None)
+        if holder is not None and hasattr(holder, "extra"):
+            return holder
+    raise AssertionError("no reporter registered for this entry")

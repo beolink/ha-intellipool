@@ -65,6 +65,8 @@ SCHEMA_VERSION = 3
 
 #: Option key that controls reporting. On unless the user turns it off.
 OPTION_KEY = "send_statistics"
+#: Opt-in, and separate: the pool's own measured values.
+READINGS_KEY = "send_readings"
 
 #: Where the armed reporters live, keyed by (domain, entry_id).
 DATA_KEY = "rnet_stats_reporters"
@@ -121,11 +123,7 @@ def _coarse(value: float | None) -> float | None:
 
 
 def stats_enabled(entry: ConfigEntry) -> bool:
-    """True only when the user has said yes.
-
-    Opt-in: nothing is reported until the box is ticked, in the config flow or
-    in the options later. An entry that predates the question carries no value
-    and therefore reports nothing.
+    """True unless the user has switched reporting off.
 
     Options win, then data: some integrations keep their settings in the entry
     data and only ever write an empty options dict, and the switch must work
@@ -135,7 +133,22 @@ def stats_enabled(entry: ConfigEntry) -> bool:
     if OPTION_KEY in options:
         return bool(options[OPTION_KEY])
     data = getattr(entry, "data", None) or {}
-    return bool(data.get(OPTION_KEY, False))
+    return bool(data.get(OPTION_KEY, True))
+
+
+def readings_enabled(entry: ConfigEntry) -> bool:
+    """True only when the user has agreed to send the pool's own readings.
+
+    Separate from stats_enabled and opt-in: the report itself carries versions,
+    installation type and the coarse location, while the measured values of
+    someone's pool only travel when they asked for that. An entry that never
+    answered the question sends the report without them.
+    """
+    options = getattr(entry, "options", None) or {}
+    if READINGS_KEY in options:
+        return bool(options[READINGS_KEY])
+    data = getattr(entry, "data", None) or {}
+    return bool(data.get(READINGS_KEY, False))
 
 
 class _LogCounter(logging.Handler):

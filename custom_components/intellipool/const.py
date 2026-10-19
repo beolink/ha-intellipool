@@ -25,6 +25,7 @@ CONF_STALE_MINUTES = "stale_minutes"  # failsafe threshold
 # Must match OPTION_KEY in stats.py. Kept here so config_flow can build its
 # schema without importing stats.py, which pulls in Home Assistant.
 CONF_SEND_STATISTICS = "send_statistics"
+CONF_SEND_READINGS = "send_readings"
 
 # Defaults
 DEFAULT_PORT = 80

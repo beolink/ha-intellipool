@@ -46,10 +46,10 @@
         }
       },
       "statistics": {
-        "title": "Anonym statistik",
-        "description": "Vill du hjälpa projektet genom att skicka en anonym rapport per dygn till {endpoint}? Det är helt frivilligt och avstängt om du inte kryssar i rutan.\n\nSlår du på det innehåller en rapport per dygn: integrationens och Home Assistants version, installationstypen, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, ett slumpat id för den här Home Assistant-installationen, och poolens egna avläsningar vid rapporttillfället (vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal).\n\nAldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Du kan ändra det när som helst, och stänger du av det raderas också det som redan skickats. Hela listan: {privacy_url}",
+        "title": "Poolens avläsningar i statistikrapporten",
+        "description": "Integrationen skickar en anonym rapport per dygn till {endpoint}: integrationens och Home Assistants version, installationstypen, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, och vilken transport som används. Det går att stänga av helt senare under Konfigurera.\n\nFår den även innehålla poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal? Den delen är avstängd om du inte kryssar i rutan.\n\nAldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Avläsningarna tas en gång per dygn, aldrig som en serie. Hela listan: {privacy_url}",
         "data": {
-          "send_statistics": "Skicka anonym statistik"
+          "send_readings": "Ta med poolens avläsningar"
         }
       }
     },
@@ -72,7 +72,8 @@
         "data": {
           "scan_interval": "Uppdateringsintervall (sekunder)",
           "stale_minutes": "Failsafe: växla till officiellt API efter (minuter utan uppdatering)",
-          "send_statistics": "Skicka anonym användningsstatistik"
+          "send_statistics": "Skicka anonym statistik",
+          "send_readings": "Ta med poolens avläsningar i rapporten"
         },
         "data_description": {
           "send_statistics": "En rapport per dygn till {endpoint}: integrationens version, Home Assistant-version och installationstyp, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, och poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal. Läses en gång per dygn, aldrig som en serie, så inget här visar när någon är hemma. Aldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Stänger du av den raderas också det som redan skickats. Hela listan: {privacy_url} Dessutom skickas en hash som knyter ihop beolinks plugin på samma Home Assistant, hur många varningar och fel integrationen loggat sedan förra rapporten, och om den är igång eller väntar på att starta igen, aldrig själva meddelandena eller skälet."

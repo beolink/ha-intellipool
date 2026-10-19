@@ -29,7 +29,7 @@ from .const import (
     DOMAIN,
     SERVICE_IMPORT_HISTORY,
 )
-from .stats import async_setup_stats
+from .stats import async_setup_stats, readings_enabled
 from .stats_extra import build_extra
 from .coordinator import IntelliPoolCoordinator
 from .history import async_import_history
@@ -110,7 +110,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     def _stats_extra() -> dict:
         data = coordinator.data
         fields = data.__dict__ if hasattr(data, "__dict__") else (data or {})
-        return build_extra(
+        extra = build_extra(
             connection=conn_type,
             has_failsafe=fallback is not None,
             control_enabled=bool(entry.options.get("control_enabled", True)),
@@ -118,6 +118,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             chlorinator=fields.get("chlorinator") is not None,
             data=fields,
         )
+        if not readings_enabled(entry):
+            # The pool's measured values are opt-in on their own. Read fresh on
+            # every report, so turning it off takes effect from the next one.
+            extra.pop("metrics", None)
+        return extra
 
     reporter = await async_setup_stats(
         hass, entry, DOMAIN, str(integration.version), extra=_stats_extra

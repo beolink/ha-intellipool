@@ -213,17 +213,17 @@ issue if your device returns a different format.
 
 ## Anonymous statistics
 
-**Off unless you ask for it.** Setup ends with the question, with the box
-unticked, and nothing is reported until you tick it. Entries created before the
-question existed report nothing either.
+Two separate switches. The report itself is on and can be switched off
+entirely; **your pool's own readings are off unless you ask for them.** Setup
+ends with that question, with the box unticked.
 
-If you turn it on, the integration sends one report per day to
-<https://stats.rnet.se>: which
+The integration sends one report per day to <https://stats.rnet.se>: which
 version you run, your Home Assistant version and installation type, the country
 you have set in Home Assistant, an approximate position rounded to about 11 km,
 which transport is in use (scrape, official API or local) and whether the
-failsafe is configured, plus the pool's own readings at reporting time: water
-and air temperature, pH, ORP, salinity and pump speed.
+failsafe is configured. The pool's own readings at reporting time, water and
+air temperature, pH, ORP, salinity and pump speed, are included only if you
+ticked the box; without it they are left out of the payload entirely.
 
 Read once a day, never sampled. A pool's chemistry says something about the
 pool and nothing about the people, and a daily reading cannot show when anyone
@@ -233,9 +233,11 @@ outside a physically sane range is dropped rather than sent. The fleet figures
 are public at <https://stats.rnet.se>; the map of where installations run is
 not.
 
-To turn it on or off later: *Settings, Devices and services, Intellipool,
-Configure, Send anonymous statistics.* Switching it off also erases what has
-already been sent about your installation. The full list of fields and the reasoning:
+To change either later: *Settings, Devices and services, Intellipool,
+Configure.* **Send anonymous statistics** turns the whole report off, and
+switching it off also erases what has already been sent about your
+installation. **Include my pool's readings in the report** controls the
+measured values on their own. The full list of fields and the reasoning:
 <https://stats.rnet.se/integritet>. What this integration contributes is
 `stats_extra.py`, and the client that sends it is `stats.py`.
 
