@@ -123,20 +123,24 @@ async def test_data_flows_into_ha_entities(
 
 
 def test_reporting_stays_on_but_readings_are_opt_in() -> None:
-    """Two separate switches.
+    """Two separate switches, both opt-in.
 
-    The daily report itself keeps working unless switched off (stats_enabled),
-    while the pool's own measured values only travel when asked for
-    (readings_enabled). An entry that predates the question reports, without
-    the readings.
+    stats_enabled decides whether a report is sent at all, readings_enabled
+    whether the pool's measured values ride along. Neither is assumed.
     """
     from custom_components.intellipool.stats import readings_enabled, stats_enabled
 
     never_asked = MockConfigEntry(domain=DOMAIN, data={}, options={})
-    assert stats_enabled(never_asked) is True
+    assert stats_enabled(never_asked) is False
     assert readings_enabled(never_asked) is False
 
-    said_yes = MockConfigEntry(domain=DOMAIN, data={"send_readings": True})
+    said_yes_to_report = MockConfigEntry(domain=DOMAIN, data={"send_statistics": True})
+    assert stats_enabled(said_yes_to_report) is True
+    assert readings_enabled(said_yes_to_report) is False
+
+    said_yes = MockConfigEntry(
+        domain=DOMAIN, data={"send_statistics": True, "send_readings": True},
+    )
     assert readings_enabled(said_yes) is True
     assert stats_enabled(said_yes) is True
 
@@ -186,6 +190,8 @@ async def test_options_flow_opens_and_saves(
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "init"
     defaults = result["data_schema"]({})
+    # Migrated from version 1, so the entry's existing reporting state is
+    # recorded rather than reset.
     assert defaults["send_statistics"] is True
     assert defaults["send_readings"] is False
 
@@ -198,10 +204,10 @@ async def test_options_flow_opens_and_saves(
     assert done["data"]["scan_interval"] == 60
 
 
-async def test_config_flow_asks_before_sending_readings(
+async def test_config_flow_asks_before_reporting_anything(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """Setup ends on the readings question, and it defaults to no."""
+    """Setup ends on the statistics question, and both boxes default to no."""
     aioclient_mock.get(
         re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
         json=PROBES_JSON,
@@ -218,11 +224,14 @@ async def test_config_flow_asks_before_sending_readings(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "statistics"
-    assert result["data_schema"]({})["send_readings"] is False
+    defaults = result["data_schema"]({})
+    assert defaults["send_statistics"] is False
+    assert defaults["send_readings"] is False
 
-    # Accepting the form as presented must not switch the readings on.
+    # Accepting the form as presented must not switch anything on.
     created = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert created["type"] is FlowResultType.CREATE_ENTRY
+    assert created["data"]["send_statistics"] is False
     assert created["data"]["send_readings"] is False
 
 
@@ -267,3 +276,65 @@ def _reporter_for(hass: HomeAssistant, entry: MockConfigEntry):
         if holder is not None and hasattr(holder, "extra"):
             return holder
     raise AssertionError("no reporter registered for this entry")
+
+
+async def test_upgrading_does_not_silence_an_existing_install(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Reporting became opt-in, but entries that were already reporting keep going.
+
+    The migration writes the state they had into the entry, so flipping the
+    default cannot quietly switch anyone off, and the switch stays visible
+    under Configure.
+    """
+    aioclient_mock.get(
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
+        json=PROBES_JSON,
+    )
+    aioclient_mock.post(re.compile(r"https://stats\.rnet\.se/"), json={"status": "ok"})
+    from custom_components.intellipool.stats import readings_enabled, stats_enabled
+
+    old = MockConfigEntry(
+        domain=DOMAIN, version=1,
+        data={
+            CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
+            CONF_INSTALL_ID: "12345",
+            CONF_API_KEY: "key",
+        },
+    )
+    old.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(old.entry_id)
+    await hass.async_block_till_done()
+
+    assert old.version == 2
+    assert stats_enabled(old) is True
+    # The readings were never agreed to, so they stay out.
+    assert readings_enabled(old) is False
+    assert "metrics" not in _reporter_for(hass, old).extra()
+
+
+async def test_an_install_that_had_opted_out_stays_out(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A switched-off entry must not be switched back on by the migration."""
+    aioclient_mock.get(
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
+        json=PROBES_JSON,
+    )
+    from custom_components.intellipool.stats import stats_enabled
+
+    off = MockConfigEntry(
+        domain=DOMAIN, version=1,
+        data={
+            CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
+            CONF_INSTALL_ID: "12345",
+            CONF_API_KEY: "key",
+        },
+        options={"send_statistics": False},
+    )
+    off.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(off.entry_id)
+    await hass.async_block_till_done()
+
+    assert off.version == 2
+    assert stats_enabled(off) is False

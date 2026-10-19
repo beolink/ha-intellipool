@@ -46,9 +46,10 @@
         }
       },
       "statistics": {
-        "title": "Pool readings in the statistics report",
-        "description": "The integration sends an anonymous report once a day to {endpoint}: the integration and Home Assistant version, the installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, and which transport is in use. You can switch that off entirely later under Configure.\n\nMay it also include your pool's own readings at reporting time: water and air temperature, pH, ORP, salinity and pump speed? That part is off unless you tick the box.\n\nNever a name, an address, an exact position, a serial number, a pool id or an entity name, and your IP address is not stored. Readings are taken once a day, never sampled. The full list: {privacy_url}",
+        "title": "Anonymous statistics",
+        "description": "Help the project by sending an anonymous report once a day to {endpoint}? Both boxes are off unless you tick them, and either can be changed later under Configure.\n\nThe report contains: the integration and Home Assistant version, the installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, which transport is in use, and a random id for this Home Assistant installation.\n\nThe second box adds your pool's own readings at reporting time: water and air temperature, pH, ORP, salinity and pump speed. Taken once a day, never sampled.\n\nNever a name, an address, an exact position, a serial number, a pool id or an entity name, and your IP address is not stored. Switching reporting off erases what has already been sent. The full list: {privacy_url}",
         "data": {
+          "send_statistics": "Send anonymous statistics",
           "send_readings": "Include my pool's readings"
         }
       }

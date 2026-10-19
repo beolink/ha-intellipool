@@ -123,7 +123,12 @@ def _coarse(value: float | None) -> float | None:
 
 
 def stats_enabled(entry: ConfigEntry) -> bool:
-    """True unless the user has switched reporting off.
+    """True only when the user has said yes.
+
+    Opt-in: nothing is reported until the box is ticked, in the config flow or
+    in the options later. Entries from before the question was asked carry the
+    answer written by the migration in __init__.py, so an entry reaching this
+    without any value at all reports nothing.
 
     Options win, then data: some integrations keep their settings in the entry
     data and only ever write an empty options dict, and the switch must work
@@ -133,7 +138,7 @@ def stats_enabled(entry: ConfigEntry) -> bool:
     if OPTION_KEY in options:
         return bool(options[OPTION_KEY])
     data = getattr(entry, "data", None) or {}
-    return bool(data.get(OPTION_KEY, True))
+    return bool(data.get(OPTION_KEY, False))
 
 
 def readings_enabled(entry: ConfigEntry) -> bool:

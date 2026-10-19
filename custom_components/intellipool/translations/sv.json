@@ -46,9 +46,10 @@
         }
       },
       "statistics": {
-        "title": "Poolens avläsningar i statistikrapporten",
-        "description": "Integrationen skickar en anonym rapport per dygn till {endpoint}: integrationens och Home Assistants version, installationstypen, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, och vilken transport som används. Det går att stänga av helt senare under Konfigurera.\n\nFår den även innehålla poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal? Den delen är avstängd om du inte kryssar i rutan.\n\nAldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Avläsningarna tas en gång per dygn, aldrig som en serie. Hela listan: {privacy_url}",
+        "title": "Anonym statistik",
+        "description": "Vill du hjälpa projektet genom att skicka en anonym rapport en gång per dygn till {endpoint}? Båda rutorna är urkryssade, och du kan ändra båda senare under Konfigurera.\n\nRapporten innehåller: integrationens och Home Assistants version, installationstypen, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, och ett slumpat id för den här Home Assistant-installationen.\n\nDen andra rutan lägger till poolens egna avläsningar vid rapporttillfället: vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal. Tas en gång per dygn, aldrig som en serie.\n\nAldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Stänger du av rapporteringen raderas det som redan skickats. Hela listan: {privacy_url}",
         "data": {
+          "send_statistics": "Skicka anonym statistik",
           "send_readings": "Ta med poolens avläsningar"
         }
       }

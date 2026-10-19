@@ -111,7 +111,7 @@ def _discovered_options(devices: list[DiscoveredDevice]) -> dict[str, str]:
 class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the Intellipool config flow."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         self._conn_type: str | None = None
@@ -438,15 +438,17 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_statistics(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Ask before the pool's own readings are reported.
+        """Ask before anything is reported.
 
-        Opt-in and on its own: the daily report carries versions, installation
-        type and a coarse location either way, and can be switched off entirely
-        in the options. The measured values only travel when this box is
-        ticked, here or in the options later.
+        Both boxes are off. The first decides whether a daily report is sent
+        at all, the second whether the pool's own measured values ride along.
+        Either can be changed later under Configure.
         """
         if user_input is not None:
-            self._data[CONF_SEND_READINGS] = bool(
+            send = bool(user_input.get(CONF_SEND_STATISTICS, False))
+            self._data[CONF_SEND_STATISTICS] = send
+            # Readings cannot travel without a report to travel in.
+            self._data[CONF_SEND_READINGS] = send and bool(
                 user_input.get(CONF_SEND_READINGS, False)
             )
             return self.async_create_entry(title=self._title, data=self._data)
@@ -454,7 +456,10 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="statistics",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_SEND_READINGS, default=False): bool}
+                {
+                    vol.Optional(CONF_SEND_STATISTICS, default=False): bool,
+                    vol.Optional(CONF_SEND_READINGS, default=False): bool,
+                }
             ),
             description_placeholders=STATS_PLACEHOLDERS,
         )

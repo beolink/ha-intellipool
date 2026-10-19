@@ -213,12 +213,16 @@ issue if your device returns a different format.
 
 ## Anonymous statistics
 
-Two separate switches. The report itself is on and can be switched off
-entirely; **your pool's own readings are off unless you ask for them.** Setup
-ends with that question, with the box unticked.
+**Nothing is reported unless you ask for it.** Setup ends with two questions,
+both unticked: whether to send a daily report at all, and whether your pool's
+own readings may ride along. Either can be changed later.
 
-The integration sends one report per day to <https://stats.rnet.se>: which
-version you run, your Home Assistant version and installation type, the country
+Upgrading from an earlier version does not switch anyone off: an installation
+that was already reporting keeps reporting, with its state written into the
+entry so it is visible under *Configure*. Readings stay out until agreed to.
+
+If you turn it on, the integration sends one report per day to
+<https://stats.rnet.se>: which version you run, your Home Assistant version and installation type, the country
 you have set in Home Assistant, an approximate position rounded to about 11 km,
 which transport is in use (scrape, official API or local) and whether the
 failsafe is configured. The pool's own readings at reporting time, water and

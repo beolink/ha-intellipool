@@ -25,6 +25,7 @@ from .const import (
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
+    CONF_SEND_STATISTICS,
     DEFAULT_STALE_MINUTES,
     DOMAIN,
     SERVICE_IMPORT_HISTORY,
@@ -129,6 +130,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     entry.async_on_unload(reporter.async_stop)
 
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Record what reporting was doing before it became opt-in.
+
+    Statistics used to be on unless switched off, and from 1.15.0 they are off
+    unless asked for. Flipping the default alone would silence installations
+    that were already reporting, so their existing state is written into the
+    entry instead: an entry that was reporting keeps reporting, one that was
+    switched off stays off, and the switch is visible under Configure either
+    way. Only entries created from 1.15.0 onwards answer the question
+    themselves, in the config flow.
+    """
+    if entry.version == 1:
+        data = {**entry.data}
+        if CONF_SEND_STATISTICS not in data:
+            was_on = entry.options.get(CONF_SEND_STATISTICS, True)
+            data[CONF_SEND_STATISTICS] = bool(was_on)
+        hass.config_entries.async_update_entry(entry, data=data, version=2)
+        _LOGGER.debug(
+            "Migrated %s to version 2: statistics recorded as %s",
+            entry.entry_id, data.get(CONF_SEND_STATISTICS),
+        )
     return True
 
 
