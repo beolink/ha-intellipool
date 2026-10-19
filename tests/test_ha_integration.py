@@ -11,6 +11,7 @@ Run:  ha-venv/bin/pytest tests/test_ha_integration.py -v
 import re
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -119,3 +120,102 @@ async def test_data_flows_into_ha_entities(
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
+
+
+def test_statistics_are_opt_in() -> None:
+    """Nothing is reported until the user has said yes.
+
+    The reviewer's requirement for HACS inclusion: an entry that never answered
+    the question, including every entry created before it was asked, must stay
+    silent.
+    """
+    from custom_components.intellipool.stats import stats_enabled
+
+    never_asked = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    assert stats_enabled(never_asked) is False
+
+    said_no = MockConfigEntry(domain=DOMAIN, data={"send_statistics": False})
+    assert stats_enabled(said_no) is False
+
+    said_yes_in_flow = MockConfigEntry(domain=DOMAIN, data={"send_statistics": True})
+    assert stats_enabled(said_yes_in_flow) is True
+
+    # Options win over whatever the flow stored, in both directions.
+    turned_off_later = MockConfigEntry(
+        domain=DOMAIN, data={"send_statistics": True},
+        options={"send_statistics": False},
+    )
+    assert stats_enabled(turned_off_later) is False
+
+    turned_on_later = MockConfigEntry(
+        domain=DOMAIN, data={}, options={"send_statistics": True},
+    )
+    assert stats_enabled(turned_on_later) is True
+
+
+async def test_options_flow_opens_and_saves(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Configure must not raise AttributeError.
+
+    config_entry is a read-only property on OptionsFlow, so an options flow
+    that assigns to it dies the moment the user picks Configure. This walks the
+    real flow instead of inspecting the class.
+    """
+    aioclient_mock.get(
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
+        json=PROBES_JSON,
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
+            CONF_INSTALL_ID: "12345",
+            CONF_API_KEY: "key",
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+    # The statistics box reflects the stored answer, which here is "never asked".
+    assert result["data_schema"]({})["send_statistics"] is False
+
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"scan_interval": 60, "stale_minutes": 30,
+                    "send_statistics": False},
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    assert done["data"]["scan_interval"] == 60
+
+
+async def test_config_flow_asks_before_reporting(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The last step of setup is the statistics question, and it defaults to no."""
+    aioclient_mock.get(
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
+        json=PROBES_JSON,
+    )
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_INSTALL_ID: "12345", CONF_API_KEY: "key"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "statistics"
+    assert result["data_schema"]({})["send_statistics"] is False
+
+    # Accepting the form as presented must not switch reporting on.
+    created = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert created["type"] is FlowResultType.CREATE_ENTRY
+    assert created["data"]["send_statistics"] is False

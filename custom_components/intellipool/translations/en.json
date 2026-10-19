@@ -44,6 +44,13 @@
           "install_id": "Installation ID",
           "api_key": "API key"
         }
+      },
+      "statistics": {
+        "title": "Anonymous statistics",
+        "description": "Help the project by sending an anonymous daily report to {endpoint}? This is entirely optional and off unless you tick the box.\n\nIf you turn it on, one report per day contains: the integration and Home Assistant version, the installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, which transport is in use, a random id for this Home Assistant installation, and the pool's own readings at reporting time (water and air temperature, pH, ORP, salinity and pump speed).\n\nNever a name, an address, an exact position, a serial number, a pool id or an entity name, and your IP address is not stored. You can change this at any time, and switching it off erases what has already been sent. The full list: {privacy_url}",
+        "data": {
+          "send_statistics": "Send anonymous statistics"
+        }
       }
     },
     "error": {

@@ -120,6 +120,8 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._prefill_host: str | None = None
         self._prefill_port: int = DEFAULT_PORT
         self._prefill_hostname: str | None = None
+        # Set by whichever connection step succeeded, used by the final step.
+        self._title: str = "Intellipool"
 
     # ------------------------------------------------------------------
     # Entry point
@@ -178,10 +180,8 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._data.update(user_input)
-                return self.async_create_entry(
-                    title=f"Intellipool (API {user_input[CONF_INSTALL_ID]})",
-                    data=self._data,
-                )
+                self._title = f"Intellipool (API {user_input[CONF_INSTALL_ID]})"
+                return await self.async_step_statistics()
 
         return self.async_show_form(
             step_id="official",
@@ -272,10 +272,8 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SSL: port in (443, 8443),
             }
         )
-        return self.async_create_entry(
-            title=f"Intellipool @ {host}",
-            data=self._data,
-        )
+        self._title = f"Intellipool @ {host}"
+        return await self.async_step_statistics()
 
     # ------------------------------------------------------------------
     # Step: manual local entry
@@ -310,10 +308,8 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._data.update(user_input)
-                return self.async_create_entry(
-                    title=f"Intellipool @ {user_input[CONF_HOST]}",
-                    data=self._data,
-                )
+                self._title = f"Intellipool @ {user_input[CONF_HOST]}"
+                return await self.async_step_statistics()
 
         # Pre-fill from passive/active discovery if available
         default_host = self._prefill_host or vol.UNDEFINED
@@ -377,10 +373,8 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not errors:
                     user_input[CONF_POOL_ID] = serial
                     self._data.update(user_input)
-                    return self.async_create_entry(
-                        title=f"Intellipool ({user_input[CONF_USERNAME]})",
-                        data=self._data,
-                    )
+                    self._title = f"Intellipool ({user_input[CONF_USERNAME]})"
+                    return await self.async_step_statistics()
 
         return self.async_show_form(
             step_id="cloud",
@@ -437,6 +431,32 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_local()
 
     # ------------------------------------------------------------------
+    # Step: statistics consent (always last, every connection type)
+    # ------------------------------------------------------------------
+
+    async def async_step_statistics(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Ask before any statistics are reported.
+
+        Opt-in: the box is off, and the reporter only starts when the user
+        ticks it here or in the options later.
+        """
+        if user_input is not None:
+            self._data[CONF_SEND_STATISTICS] = bool(
+                user_input.get(CONF_SEND_STATISTICS, False)
+            )
+            return self.async_create_entry(title=self._title, data=self._data)
+
+        return self.async_show_form(
+            step_id="statistics",
+            data_schema=vol.Schema(
+                {vol.Optional(CONF_SEND_STATISTICS, default=False): bool}
+            ),
+            description_placeholders=STATS_PLACEHOLDERS,
+        )
+
+    # ------------------------------------------------------------------
     # Options
     # ------------------------------------------------------------------
 
@@ -445,21 +465,24 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> IntelliPoolOptionsFlow:
-        return IntelliPoolOptionsFlow(config_entry)
+        return IntelliPoolOptionsFlow()
 
 
 class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
-    """Handle options (e.g. scan interval)."""
+    """Handle options (e.g. scan interval).
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+    No __init__: Home Assistant provides config_entry as a read-only property,
+    and assigning to it raises AttributeError on current versions.
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
+        from .stats import stats_enabled
+
         if user_input is not None:
-            was_on = self.config_entry.options.get(CONF_SEND_STATISTICS, True)
-            now_on = bool(user_input.get(CONF_SEND_STATISTICS, True))
+            was_on = stats_enabled(self.config_entry)
+            now_on = bool(user_input.get(CONF_SEND_STATISTICS, False))
             if was_on and not now_on:
                 # Switching it off erases what has already been sent, rather
                 # than merely going quiet. Imported here rather than at the top:
@@ -486,7 +509,7 @@ class IntelliPoolOptionsFlow(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_SEND_STATISTICS,
-                    default=self.config_entry.options.get(CONF_SEND_STATISTICS, True),
+                    default=stats_enabled(self.config_entry),
                 ): bool,
             }
         )

@@ -44,6 +44,13 @@
           "install_id": "Installations-ID",
           "api_key": "API-nyckel"
         }
+      },
+      "statistics": {
+        "title": "Anonym statistik",
+        "description": "Vill du hjälpa projektet genom att skicka en anonym rapport per dygn till {endpoint}? Det är helt frivilligt och avstängt om du inte kryssar i rutan.\n\nSlår du på det innehåller en rapport per dygn: integrationens och Home Assistants version, installationstypen, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, vilken transport som används, ett slumpat id för den här Home Assistant-installationen, och poolens egna avläsningar vid rapporttillfället (vatten- och lufttemperatur, pH, ORP, salthalt och pumpvarvtal).\n\nAldrig namn, adress, exakt position, serienummer, pool-id eller entitetsnamn, och din IP-adress sparas inte. Du kan ändra det när som helst, och stänger du av det raderas också det som redan skickats. Hela listan: {privacy_url}",
+        "data": {
+          "send_statistics": "Skicka anonym statistik"
+        }
       }
     },
     "error": {
