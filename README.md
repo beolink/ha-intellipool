@@ -217,9 +217,10 @@ issue if your device returns a different format.
 both unticked: whether to send a daily report at all, and whether your pool's
 own readings may ride along. Either can be changed later.
 
-Upgrading from an earlier version does not switch anyone off: an installation
-that was already reporting keeps reporting, with its state written into the
-entry so it is visible under *Configure*. Readings stay out until agreed to.
+Upgrading from an earlier version switches reporting **off**. Statistics used
+to be on unless switched off, and consent collected that way is not consent, so
+every existing installation starts from no and can turn it back on under
+*Configure*.
 
 If you turn it on, the integration sends one report per day to
 <https://stats.rnet.se>: which version you run, your Home Assistant version and installation type, the country

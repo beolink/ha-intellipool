@@ -25,6 +25,7 @@ from .const import (
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
+    CONF_SEND_READINGS,
     CONF_SEND_STATISTICS,
     DEFAULT_STALE_MINUTES,
     DOMAIN,
@@ -134,25 +135,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Record what reporting was doing before it became opt-in.
+    """Reset reporting to off, because nobody ever agreed to it.
 
-    Statistics used to be on unless switched off, and from 1.15.0 they are off
-    unless asked for. Flipping the default alone would silence installations
-    that were already reporting, so their existing state is written into the
-    entry instead: an entry that was reporting keeps reporting, one that was
-    switched off stays off, and the switch is visible under Configure either
-    way. Only entries created from 1.15.0 onwards answer the question
-    themselves, in the config flow.
+    Statistics used to be on unless switched off. Consent collected that way
+    is not consent: an entry carrying "on" only ever carried the old default,
+    and the one place it could have been changed was a Configure dialog that
+    crashed before 1.13.0. So version 2 switches every existing entry off and
+    lets its owner turn it back on deliberately, the same question new
+    installations answer in the config flow.
+
+    Both keys are written into data and cleared from options, since options
+    win over data and a stale "on" there would otherwise survive the reset.
     """
     if entry.version == 1:
-        data = {**entry.data}
-        if CONF_SEND_STATISTICS not in data:
-            was_on = entry.options.get(CONF_SEND_STATISTICS, True)
-            data[CONF_SEND_STATISTICS] = bool(was_on)
-        hass.config_entries.async_update_entry(entry, data=data, version=2)
-        _LOGGER.debug(
-            "Migrated %s to version 2: statistics recorded as %s",
-            entry.entry_id, data.get(CONF_SEND_STATISTICS),
+        data = {**entry.data,
+                CONF_SEND_STATISTICS: False,
+                CONF_SEND_READINGS: False}
+        options = {k: v for k, v in entry.options.items()
+                   if k not in (CONF_SEND_STATISTICS, CONF_SEND_READINGS)}
+        hass.config_entries.async_update_entry(
+            entry, data=data, options=options, version=2
+        )
+        _LOGGER.info(
+            "Intellipool statistics are now opt-in and have been switched off "
+            "for this entry. Turn them back on under Settings, Devices and "
+            "services, Intellipool, Configure."
         )
     return True
 

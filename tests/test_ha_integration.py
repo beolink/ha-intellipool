@@ -190,9 +190,9 @@ async def test_options_flow_opens_and_saves(
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "init"
     defaults = result["data_schema"]({})
-    # Migrated from version 1, so the entry's existing reporting state is
-    # recorded rather than reset.
-    assert defaults["send_statistics"] is True
+    # Migrated from version 1, which switches reporting off: consent has to be
+    # given, not inherited.
+    assert defaults["send_statistics"] is False
     assert defaults["send_readings"] is False
 
     done = await hass.config_entries.options.async_configure(
@@ -254,7 +254,9 @@ async def test_readings_are_left_out_of_the_payload_without_consent(
         CONF_INSTALL_ID: "12345",
         CONF_API_KEY: "key",
     }
-    silent = MockConfigEntry(domain=DOMAIN, data=base)
+    # Version 2: entries that have already been asked, so the migration leaves
+    # their answer alone.
+    silent = MockConfigEntry(domain=DOMAIN, version=2, data=base)
     silent.add_to_hass(hass)
     assert await hass.config_entries.async_setup(silent.entry_id)
     await hass.async_block_till_done()
@@ -262,7 +264,10 @@ async def test_readings_are_left_out_of_the_payload_without_consent(
     assert "metrics" not in reporter.extra()
     assert reporter.extra()["models"] == ["intp_1010b"]
 
-    consented = MockConfigEntry(domain=DOMAIN, data={**base, "send_readings": True})
+    consented = MockConfigEntry(
+        domain=DOMAIN, version=2,
+        data={**base, "send_statistics": True, "send_readings": True},
+    )
     consented.add_to_hass(hass)
     assert await hass.config_entries.async_setup(consented.entry_id)
     await hass.async_block_till_done()
@@ -278,20 +283,18 @@ def _reporter_for(hass: HomeAssistant, entry: MockConfigEntry):
     raise AssertionError("no reporter registered for this entry")
 
 
-async def test_upgrading_does_not_silence_an_existing_install(
+async def test_upgrading_switches_an_existing_install_off(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """Reporting became opt-in, but entries that were already reporting keep going.
+    """Reporting is opt-in, and nobody consented under the old default.
 
-    The migration writes the state they had into the entry, so flipping the
-    default cannot quietly switch anyone off, and the switch stays visible
-    under Configure.
+    An entry that was reporting only because that was the default is switched
+    off by the migration and has to be turned back on deliberately.
     """
     aioclient_mock.get(
         re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
         json=PROBES_JSON,
     )
-    aioclient_mock.post(re.compile(r"https://stats\.rnet\.se/"), json={"status": "ok"})
     from custom_components.intellipool.stats import readings_enabled, stats_enabled
 
     old = MockConfigEntry(
@@ -307,34 +310,83 @@ async def test_upgrading_does_not_silence_an_existing_install(
     await hass.async_block_till_done()
 
     assert old.version == 2
-    assert stats_enabled(old) is True
-    # The readings were never agreed to, so they stay out.
+    assert stats_enabled(old) is False
     assert readings_enabled(old) is False
-    assert "metrics" not in _reporter_for(hass, old).extra()
 
 
-async def test_an_install_that_had_opted_out_stays_out(
+async def test_a_stale_yes_in_options_does_not_survive_the_reset(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """A switched-off entry must not be switched back on by the migration."""
+    """Options win over data, so the migration has to clear them too.
+
+    Saving the old options form wrote send_statistics: True whether or not the
+    box was ever touched. That is not consent and must not survive.
+    """
     aioclient_mock.get(
         re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
         json=PROBES_JSON,
     )
     from custom_components.intellipool.stats import stats_enabled
 
-    off = MockConfigEntry(
+    entry = MockConfigEntry(
         domain=DOMAIN, version=1,
         data={
             CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
             CONF_INSTALL_ID: "12345",
             CONF_API_KEY: "key",
         },
-        options={"send_statistics": False},
+        options={"send_statistics": True, "scan_interval": 45},
     )
-    off.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(off.entry_id)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert off.version == 2
-    assert stats_enabled(off) is False
+    assert stats_enabled(entry) is False
+    # Unrelated options are left alone.
+    assert entry.options["scan_interval"] == 45
+
+
+async def test_turning_it_back_on_after_the_reset_works(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The reset is not a dead end: Configure turns reporting back on."""
+    aioclient_mock.get(
+        re.compile(r"https://api\.domotique-piscine\.eu/api/install/12345/probes"),
+        json=PROBES_JSON,
+    )
+    aioclient_mock.post(re.compile(r"https://stats\.rnet\.se/"), json={"status": "ok"})
+    from custom_components.intellipool.stats import readings_enabled, stats_enabled
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, version=1,
+        data={
+            CONF_CONNECTION_TYPE: CONN_TYPE_OFFICIAL,
+            CONF_INSTALL_ID: "12345",
+            CONF_API_KEY: "key",
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert stats_enabled(entry) is False
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"scan_interval": 60, "stale_minutes": 30,
+                    "send_statistics": True, "send_readings": True},
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    assert stats_enabled(entry) is True
+    assert readings_enabled(entry) is True
+
+
+def _reporter_for(hass: HomeAssistant, entry: MockConfigEntry):
+    """The reporter is held by the entry's unload callbacks, not hass.data."""
+    for job in entry._on_unload or []:
+        holder = getattr(job, "__self__", None)
+        if holder is not None and hasattr(holder, "extra"):
+            return holder
+    raise AssertionError("no reporter registered for this entry")
