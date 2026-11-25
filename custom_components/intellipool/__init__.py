@@ -8,7 +8,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import (
+    async_create_clientsession,
+    async_get_clientsession,
+)
 from homeassistant.loader import async_get_integration
 
 from .api import CannotConnect, IntelliPoolAPI, IntelliPoolOfficialAPI
@@ -21,6 +24,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SSL,
     CONF_STALE_MINUTES,
+    CONN_TYPE_CLOUD,
     CONN_TYPE_LOCAL,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PORT,
@@ -53,6 +57,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     conn_type = entry.data[CONF_CONNECTION_TYPE]
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
+    # The cloud backend logs in and keeps a PHPSESSID cookie, so it gets a
+    # session of its own: on Home Assistant's shared session that cookie would
+    # land in the jar every other integration uses, and a second entry or a
+    # config flow running alongside would overwrite the login. Created during
+    # entry setup, so Home Assistant detaches it when the entry unloads.
+    session = (
+        async_create_clientsession(hass)
+        if conn_type == CONN_TYPE_CLOUD
+        else async_get_clientsession(hass)
+    )
+
     api = IntelliPoolAPI(
         connection_type=conn_type,
         host=entry.data.get(CONF_HOST),
@@ -63,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         pool_id=entry.data.get(CONF_POOL_ID),
         install_id=entry.data.get(CONF_INSTALL_ID),
         api_key=entry.data.get(CONF_API_KEY),
-        session=async_get_clientsession(hass),
+        session=session,
     )
 
     try:

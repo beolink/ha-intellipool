@@ -9,6 +9,7 @@ data — no network, no secrets.
 Run:  ha-venv/bin/pytest tests/test_ha_integration.py -v
 """
 import re
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
@@ -21,6 +22,9 @@ from custom_components.intellipool.const import (
     CONF_API_KEY,
     CONF_CONNECTION_TYPE,
     CONF_INSTALL_ID,
+    CONF_PASSWORD,
+    CONF_POOL_ID,
+    CONF_USERNAME,
     CONN_TYPE_OFFICIAL,
     DOMAIN,
 )
@@ -390,3 +394,47 @@ def _reporter_for(hass: HomeAssistant, entry: MockConfigEntry):
         if holder is not None and hasattr(holder, "extra"):
             return holder
     raise AssertionError("no reporter registered for this entry")
+
+
+async def test_cloud_login_does_not_touch_the_shared_session(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The cloud backend must own its session.
+
+    It authenticates and keeps a PHPSESSID cookie. On Home Assistant's shared
+    session that cookie lands in the jar every other integration uses, and a
+    second entry or a config flow running alongside overwrites the login.
+    """
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    summary = (Path(__file__).parent / "sample_summary.html").read_text()
+    aioclient_mock.post(
+        "https://www.intellipool.eu/pool/poolLogin/login",
+        text="<html><body>displaySummary('35558')</body></html>",
+    )
+    aioclient_mock.post(
+        "https://www.intellipool.eu/pool/poolSummary", text=summary,
+    )
+    aioclient_mock.get(
+        re.compile(r"https://www\.intellipool\.eu/"),
+        text="<html><body>displaySummary('35558')</body></html>",
+    )
+    aioclient_mock.post(re.compile(r"https://www\.intellipool\.eu/pool/ajax"), text="{}")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, version=2,
+        data={
+            CONF_CONNECTION_TYPE: "cloud",
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "secret",
+            CONF_POOL_ID: "35558",
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    backend = coordinator.api._backend
+    assert backend._session is not None
+    assert backend._session is not async_get_clientsession(hass)

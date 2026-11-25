@@ -12,7 +12,10 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import (
+    async_create_clientsession,
+    async_get_clientsession,
+)
 
 from .api import (
     CannotConnect,
@@ -341,7 +344,11 @@ class IntelliPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            session = async_get_clientsession(self.hass)
+            # Its own session, not Home Assistant's shared one: logging in
+            # here would otherwise drop a PHPSESSID into the jar every
+            # integration shares, and clobber the login of an entry already
+            # running.
+            session = async_create_clientsession(self.hass)
             api = IntelliPoolCloudAPI(
                 username=user_input[CONF_USERNAME],
                 password=user_input[CONF_PASSWORD],
